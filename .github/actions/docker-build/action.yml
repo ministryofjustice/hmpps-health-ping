@@ -31,11 +31,7 @@ runs:
       uses: docker/build-push-action@v4
       if: inputs.force-deploy == 'true'
       with:
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        context: .
         push: ${{ inputs.push }}
-        provenance: false
         tags: |
           ghcr.io/ministryofjustice/${{ inputs.project }}:latest
           ghcr.io/ministryofjustice/${{ inputs.project }}:${{ inputs.version }}
