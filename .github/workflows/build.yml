@@ -15,10 +15,6 @@ on:
         description: Push images
         type: boolean
         default: false
-      force-deploy:
-        description: Force re-tagging and deployment of images
-        type: boolean
-        default: false
 
 env:
   push: ${{ !(github.event_name == 'push' && github.ref_name != 'main') && inputs.push }}
@@ -47,4 +43,3 @@ jobs:
           project: ${{ matrix.project }}
           push: ${{ env.push }}
           version: ${{ steps.version.outputs.version }}
-          force-deploy: ${{ inputs.force-deploy }}
