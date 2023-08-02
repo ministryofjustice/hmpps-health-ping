@@ -38,6 +38,7 @@ runs:
       with:
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        context: .
         push: ${{ inputs.push }}
         provenance: false
         tags: |
