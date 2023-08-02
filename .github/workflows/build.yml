@@ -1,0 +1,57 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        type: boolean
+        default: false
+      force-deploy:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      push:
+        description: Push images
+        type: boolean
+        default: false
+      force-deploy:
+        description: Force re-tagging and deployment of images
+        type: boolean
+        default: false
+
+env:
+  push: ${{ !(github.event_name == 'push' && github.ref_name != 'main') && inputs.push }}
+
+jobs:
+  build-docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - hmpps-health-ping
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set version
+        id: version
+        run: |
+          version=$(date '+%Y-%m-%d').${{ github.run_number }}.$(echo ${{ github.sha }} | cut -c1-7)
+          echo "version=$version" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Build Docker images
+        uses: ./.github/actions/docker-build
+        id: build
+        with:
+          project: ${{ matrix.project }}
+          push: ${{ env.push }}
+          version: ${{ steps.version.outputs.version }}
+          force-deploy: ${{ inputs.force-deploy }}
+
+      - name: Output changes
+        uses: cloudposse/github-action-matrix-outputs-write@928e2a2d3d6ae4eb94010827489805c17c81181f # v0.4.2
+        with:
+          matrix-step-name: output-changes
+          matrix-key: ${{ matrix.project }}
+          outputs: ${{ steps.build.outputs.changes }}
