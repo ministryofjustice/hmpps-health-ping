@@ -13,11 +13,6 @@ inputs:
   version:
     description: Version
 
-outputs:
-  changes:
-    description: A JSON array of projects that have changed
-    value: ${{ steps.check-changes.outputs.projects }}
-
 runs:
   using: "composite"
   steps:
