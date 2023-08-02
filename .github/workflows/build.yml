@@ -48,10 +48,3 @@ jobs:
           push: ${{ env.push }}
           version: ${{ steps.version.outputs.version }}
           force-deploy: ${{ inputs.force-deploy }}
-
-      - name: Output changes
-        uses: cloudposse/github-action-matrix-outputs-write@928e2a2d3d6ae4eb94010827489805c17c81181f # v0.4.2
-        with:
-          matrix-step-name: output-changes
-          matrix-key: ${{ matrix.project }}
-          outputs: ${{ steps.build.outputs.changes }}
