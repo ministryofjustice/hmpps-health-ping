@@ -16,6 +16,7 @@ redis_host = os.getenv("REDIS_ENDPOINT")
 redis_port = os.getenv("REDIS_PORT")
 redis_tls_enabled = os.getenv("REDIS_TLS_ENABLED", 'False').lower() in ('true', '1', 't')
 redis_token = os.getenv("REDIS_TOKEN", "")
+redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "180"))
 refresh_interval = int(os.getenv("REFRESH_INTERVAL", 60))
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
@@ -96,7 +97,7 @@ def process_env(c_name, e_name, endpoint, endpoint_type):
     log.error(e)
 
   try:
-    redis.xadd(stream_key, stream_data, maxlen=2880, approximate=False)
+    redis.xadd(stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False)
     log.debug(f"{stream_key}: {stream_data}")
   except Exception as e:
     log.error(f"Unable to add data to redis stream. {e}")
