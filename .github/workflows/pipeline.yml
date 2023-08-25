@@ -13,3 +13,13 @@ jobs:
     with:
       push: true
     secrets: inherit
+
+  deploy-to-dev:
+    name: Deploy to dev
+    uses: ./.github/workflows/deploy.yml
+    needs: build
+    with:
+      github_environment: development
+      environment: dev
+      version: ${{ needs.build.outputs.version }}
+    secrets: inherit

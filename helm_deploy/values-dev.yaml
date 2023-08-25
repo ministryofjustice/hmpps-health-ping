@@ -1,0 +1,5 @@
+---
+# Per environment values which override defaults in hmpps-health-ping/values.yaml
+
+generic-prometheus-alerts:
+  alertSeverity: hmpps-sre-alerts-dev

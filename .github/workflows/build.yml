@@ -27,6 +27,8 @@ jobs:
       matrix:
         project:
           - hmpps-health-ping
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v3
 
