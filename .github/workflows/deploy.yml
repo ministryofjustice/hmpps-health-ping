@@ -51,9 +51,9 @@ jobs:
         with:
           environment: ${{ inputs.environment }}
           version: ${{ inputs.version }}
-          api: ${{ secrets.KUBE_ENV_API }}
-          cert: ${{ secrets.KUBE_CERT }}
-          cluster: ${{ secrets.KUBE_CLUSTER }}
-          namespace: ${{ secrets.KUBE_NAMESPACE }}
-          token: ${{ secrets.KUBE_TOKEN }}
+          api: ${{ secrets.DEVELOPMENT_KUBE_ENV_API }}
+          cert: ${{ secrets.DEVELOPMENT_KUBE_CERT }}
+          cluster: ${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
+          namespace: ${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}
+          token: ${{ secrets.DEVELOPMENT_KUBE_TOKEN }}
 
