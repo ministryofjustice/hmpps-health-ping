@@ -13,10 +13,19 @@ generic-service:
     enabled: false
 
   # Due to a bug cant disable/override the sub chart.
+  # https://github.com/helm/helm/pull/12162
   #livenessProbe: null
-  livenessProbe: null
-
-  readinessProbe: null
+  livenessProbe:
+    exec:
+      command:
+      - test
+      - "true"
+  #readinessProbe: null
+  readinessProbe:
+    exec:
+      command:
+      - test
+      - "true"
 
   # Environment variables to load into the deployment
   env:
