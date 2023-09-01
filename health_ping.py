@@ -58,7 +58,7 @@ def process_env(c_name, e_name, endpoint, endpoint_type):
 
     try:
       output = r.json()
-      stream_data.update({'json': str(output)})
+      stream_data.update({'json': str(json.dumps(output))})
       #log.info(app_version)
     except Exception as e:
       log.error(f"{endpoint}: Unable to read json")
