@@ -9,6 +9,9 @@ on:
       force-deploy:
         type: boolean
         default: false
+    outputs:
+      version:
+        value: ${{ jobs.build-docker.outputs.version }}
   workflow_dispatch:
     inputs:
       push:
