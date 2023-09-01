@@ -9,6 +9,8 @@ import json
 from datetime import datetime
 from time import sleep
 import redis
+import http.server
+import socketserver
 
 sc_api_endpoint = os.getenv("SERVICE_CATALOGUE_API_ENDPOINT")
 sc_api_token = os.getenv("SERVICE_CATALOGUE_API_KEY")
@@ -102,6 +104,19 @@ def process_env(c_name, e_name, endpoint, endpoint_type):
   except Exception as e:
     log.error(f"Unable to add data to redis stream. {e}")
 
+class HealthHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(bytes("UP", "utf8"))
+        return
+
+def startHttpServer():
+  handler_object = HealthHttpRequestHandler
+  with socketserver.TCPServer(("", 8080), handler_object) as httpd:
+      httpd.serve_forever()
+
 if __name__ == '__main__':
   logging.basicConfig(
       format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=log_level)
@@ -148,6 +163,12 @@ if __name__ == '__main__':
     except Exception as e:
       log.error(f"Unable to connect to Service Catalogue API. {e}")
     threads = list()
+
+    # Start health endpoint. 
+    httpHealth = threading.Thread(target=startHttpServer, daemon=True)
+    threads.append(httpHealth)
+    httpHealth.start()
+
     for component in j_data:
       for env in component["attributes"]["environments"]:
         c_name = component["attributes"]["name"]
