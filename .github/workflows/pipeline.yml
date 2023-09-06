@@ -3,7 +3,7 @@ name: Pipeline
 on:
   push:
     branches:
-      - init-project
+      - main
   workflow_dispatch: # Can be triggered manually from a branch
 
 jobs:
