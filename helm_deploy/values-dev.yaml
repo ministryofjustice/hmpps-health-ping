@@ -1,5 +1,12 @@
 ---
 # Per environment values which override defaults in hmpps-health-ping/values.yaml
 
+generic-service:
+  env:
+    REFRESH_INTERVAL: "180"
+    REDIS_MAX_STREAM_LENGTH: 360
+    LOG_LEVEL: debug
+
 generic-prometheus-alerts:
   alertSeverity: hmpps-sre-alerts-dev
+
