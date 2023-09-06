@@ -1,0 +1,25 @@
+name: Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Can be triggered manually from a branch
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+    with:
+      push: true
+    secrets: inherit
+
+  deploy-to-dev:
+    name: Deploy to dev
+    uses: ./.github/workflows/deploy.yml
+    needs: build
+    with:
+      github_environment: development
+      environment: dev
+      version: ${{ needs.build.outputs.version }}
+    secrets: inherit

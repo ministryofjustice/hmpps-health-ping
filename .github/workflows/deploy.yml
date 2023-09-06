@@ -1,0 +1,59 @@
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      github_environment:
+        description: The name of the github environment for deployment secrets
+        type: string
+        required: true        
+      environment:
+        description: The name of the environment to deploy to
+        type: string
+        required: true
+      version:
+        description: The image version to deploy
+        type: string
+        required: true
+
+  workflow_dispatch:
+    inputs:
+      github_environment:
+        description: The name of the github environment for deployment secrets
+        type: choice
+        required: true
+        options:
+          - development
+          - production
+      environment:
+        description: Environment
+        type: choice
+        required: true
+        options:
+          - dev
+      version:
+        description: Image version
+        type: string
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    environment:
+      name: ${{ inputs.github_environment }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deploy to Cloud Platform
+        uses: ./.github/actions/cloud-platform-deploy
+        with:
+          environment: ${{ inputs.environment }}
+          version: ${{ inputs.version }}
+          api: https://${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
+          cert: ${{ secrets.DEVELOPMENT_KUBE_CERT }}
+          cluster: ${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
+          namespace: ${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}
+          token: ${{ secrets.DEVELOPMENT_KUBE_TOKEN }}
+

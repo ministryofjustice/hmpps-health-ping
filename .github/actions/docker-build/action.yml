@@ -1,0 +1,34 @@
+name: Build Docker image
+description: Build, and optionally push, a Docker image
+
+inputs:
+  project:
+    description: Project name
+  push:
+    description: Whether to push images to the registry
+    default: 'false'
+  version:
+    description: Version
+
+runs:
+  using: "composite"
+  steps:
+    - uses: docker/setup-qemu-action@v2
+    - uses: docker/setup-buildx-action@v2
+    - uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
+    - name: Build Docker images
+      uses: docker/build-push-action@v4
+      with:
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        context: .
+        push: ${{ inputs.push }}
+        provenance: false
+        tags: |
+          ghcr.io/ministryofjustice/${{ inputs.project }}:latest
+          ghcr.io/ministryofjustice/${{ inputs.project }}:${{ inputs.version }}

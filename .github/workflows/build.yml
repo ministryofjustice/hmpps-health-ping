@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      push:
+        type: boolean
+        default: false
+      force-deploy:
+        type: boolean
+        default: false
+    outputs:
+      version:
+        value: ${{ jobs.build-docker.outputs.version }}
+  workflow_dispatch:
+    inputs:
+      push:
+        description: Push images
+        type: boolean
+        default: false
+
+env:
+  push: ${{ inputs.push }}
+
+jobs:
+  build-docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - hmpps-health-ping
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set version
+        id: version
+        run: |
+          version=$(date '+%Y-%m-%d').${{ github.run_number }}.$(echo ${{ github.sha }} | cut -c1-7)
+          echo "version=$version" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Build Docker images
+        uses: ./.github/actions/docker-build
+        id: build
+        with:
+          project: ${{ matrix.project }}
+          push: ${{ env.push }}
+          version: ${{ steps.version.outputs.version }}
