@@ -13,12 +13,13 @@ import http.server
 import socketserver
 
 sc_api_endpoint = os.getenv("SERVICE_CATALOGUE_API_ENDPOINT")
+sc_api_filter = os.getenv("SC_FILTER", '')
 sc_api_token = os.getenv("SERVICE_CATALOGUE_API_KEY")
 redis_host = os.getenv("REDIS_ENDPOINT")
 redis_port = os.getenv("REDIS_PORT")
 redis_tls_enabled = os.getenv("REDIS_TLS_ENABLED", 'False').lower() in ('true', '1', 't')
 redis_token = os.getenv("REDIS_TOKEN", "")
-redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "180"))
+redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "360"))
 refresh_interval = int(os.getenv("REFRESH_INTERVAL", 60))
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
@@ -128,6 +129,7 @@ if __name__ == '__main__':
       host = redis_host,
       port = redis_port,
       ssl = redis_tls_enabled,
+      ssl_cert_reqs = None,
       decode_responses = True
     )
     if redis_token:
@@ -149,7 +151,7 @@ if __name__ == '__main__':
     log.critical("Unable to connect to the Service Catalogue.")
     raise SystemExit(e) 
 
-  sc_endpoint = f"{sc_api_endpoint}/v1/components?populate=environments"
+  sc_endpoint = f"{sc_api_endpoint}/v1/components?populate=environments{sc_api_filter}"
 
   while True:
     log.info(sc_endpoint)
@@ -173,7 +175,7 @@ if __name__ == '__main__':
       for env in component["attributes"]["environments"]:
         c_name = component["attributes"]["name"]
         e_name = env["name"]
-        if env["url"]:
+        if (env["url"]) and (env["monitor"] == True):
           if env["health_path"]:
             endpoint = f'{env["url"]}{env["health_path"]}'
             endpoint_type = "health"
