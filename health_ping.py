@@ -77,24 +77,21 @@ def process_env(c_name, e_name, endpoint, endpoint_type):
 
   # Try to get app version.
   try:
-    # if endpoint_type == "info":
-    #   if output['build']['version']:
-    #     app_version = output['build']['version']
-    #     update_app_version(app_version,version_key)
-    if endpoint_type == "health":
-      version_locations = (
-        "output['components']['healthInfo']['details']['version']", # Java/Kotlin springboot apps
-        "output['build']['buildNumber']" # Node/Typscript apps
-      )
-      for loc in version_locations:
-        try:
-          app_version = eval(loc)
-          log.debug(f"Found app version: {c_name}:{e_name}:{app_version}")
-          update_app_version(app_version, c_name, e_name)
-        except (KeyError, TypeError):
-          pass
-        except Exception as e:
-          log.error(f"{endpoint}: {type(e)} {e}")
+    version_locations = (
+      "output['build']['version']", # all apps should have version here
+      "output['components']['healthInfo']['details']['version']", # Java/Kotlin springboot apps
+      "output['build']['buildNumber']" # Node/Typscript apps
+    )
+    for loc in version_locations:
+      try:
+        app_version = eval(loc)
+        log.debug(f"Found app version: {c_name}:{e_name}:{app_version}")
+        update_app_version(app_version, c_name, e_name)
+        break
+      except (KeyError, TypeError):
+        pass
+      except Exception as e:
+        log.error(f"{endpoint}: {type(e)} {e}")
 
   except Exception as e:
     log.error(e)
