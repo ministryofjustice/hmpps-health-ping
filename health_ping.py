@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 '''Health ping - fetches all /health and /info endpoints and stores the results in Redis'''
 import os
-import sys
 import threading
 import logging
 import requests
 import json
-from datetime import datetime
 from time import sleep
 import redis
 import http.server
@@ -20,8 +18,19 @@ redis_port = os.getenv("REDIS_PORT")
 redis_tls_enabled = os.getenv("REDIS_TLS_ENABLED", 'False').lower() in ('true', '1', 't')
 redis_token = os.getenv("REDIS_TOKEN", "")
 redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "360"))
-refresh_interval = int(os.getenv("REFRESH_INTERVAL", 60))
+refresh_interval = int(os.getenv("REFRESH_INTERVAL","60"))
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+
+def update_sc_component(c_id, data):
+  try:
+    log.debug(data)
+    x = requests.put(f"{sc_api_endpoint}/v1/components/{c_id}", headers=sc_api_headers, json = {"data": data}, timeout=10)
+    if x.status_code == 200:
+      log.info(f"Successfully updated component id {c_id}: {x.status_code}")
+    else:
+      log.info(f"Received non-200 response from service catalogue for component id {c_id}: {x.status_code} {x.content}")
+  except Exception as e:
+    log.error(f"Error updating component in the SC: {e}")
 
 def update_app_version(app_version, c_name, e_name):
   version_key = f'version:{c_name}:{e_name}'
@@ -31,11 +40,8 @@ def update_app_version(app_version, c_name, e_name):
     last_entry_version = redis.xrevrange(version_key, max='+', min='-', count=1)
     if last_entry_version != []:
       last_version = last_entry_version[0][1]['v']
-      # last_version_key = last_entry_version[0][0].split('-')[0]
-      # last_version_key_dt = int(last_version_key) / 1000 # millisecs to secs epoch time
-      # last_version_time=datetime.fromtimestamp(last_version_key_dt).strftime("%d/%m/%Y, %H:%M:%S")
     else:
-      # Must be first time entry.
+      # Must be first time entry.
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
       log.debug(f"First version entry = {version_key}:{version_data}")
       return
@@ -46,7 +52,7 @@ def update_app_version(app_version, c_name, e_name):
   except Exception as e:
     log.error(e)
 
-def process_env(c_name, e_name, endpoint, endpoint_type):
+def process_env(c_name, e_name, endpoint, endpoint_type, component):
   output = {}
   # Redis key to use for stream
   stream_key = f'{endpoint_type}:{c_name}:{e_name}'
@@ -55,7 +61,7 @@ def process_env(c_name, e_name, endpoint, endpoint_type):
   try:
     # Override default User-Agent other gets blocked by mod security.
     headers = {'User-Agent': 'hmpps-health-ping'}
-    r = requests.get(endpoint, headers=headers)
+    r = requests.get(endpoint, headers=headers, timeout=10)
 
     try:
       output = r.json()
@@ -96,6 +102,34 @@ def process_env(c_name, e_name, endpoint, endpoint_type):
   except Exception as e:
     log.error(e)
 
+  # Current compoment ID needed for strapi api call
+  c_id = component["id"]
+
+  # Try to get active agencies
+  try:
+    active_agencies = output['activeAgencies']
+    # Need to get other env IDs for strapi update
+    other_env_ids = []
+    for e in component["attributes"]["environments"]:
+      if e_name == e["name"]:
+        e_id = e["id"]
+        # Existing active_agencies from the SC
+        e_active_agencies = e["active_agencies"]
+      else:
+        # Collect other env vars for strapi update.
+        other_env_ids.append({"id": e["id"]})
+
+    # Test if active_agencies has changed, only update SC if so.
+    if sorted(active_agencies) != sorted(e_active_agencies):
+      # Need to add all other env IDs to the data payload otherwise strapi will delete them.
+      env_data = other_env_ids.append({"id": e_id, "active_agencies": active_agencies })
+      data = {"environments": env_data}
+      update_sc_component(c_id, data)
+  except (KeyError, TypeError):
+    pass
+  except Exception as e:
+    log.error(e)
+
   try:
     redis.xadd(stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False)
     log.debug(f"{stream_key}: {stream_data}")
@@ -103,22 +137,28 @@ def process_env(c_name, e_name, endpoint, endpoint_type):
     log.error(f"Unable to add data to redis stream. {e}")
 
 class HealthHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain")
-        self.end_headers()
-        self.wfile.write(bytes("UP", "utf8"))
-        return
+  def do_GET(self):
+    self.send_response(200)
+    self.send_header("Content-type", "text/plain")
+    self.end_headers()
+    self.wfile.write(bytes("UP", "utf8"))
+    return
 
 def startHttpServer():
   handler_object = HealthHttpRequestHandler
   with socketserver.TCPServer(("", 8080), handler_object) as httpd:
-      httpd.serve_forever()
+    httpd.serve_forever()
 
 if __name__ == '__main__':
   logging.basicConfig(
       format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=log_level)
   log = logging.getLogger(__name__)
+
+  threads = list()
+  # Start health endpoint.
+  httpHealth = threading.Thread(target=startHttpServer, daemon=True)
+  threads.append(httpHealth)
+  httpHealth.start()
 
   # Test connection to redis
   try:
@@ -133,16 +173,16 @@ if __name__ == '__main__':
       redis_connect_args.update(dict(password=redis_token))
     redis = redis.Redis(**redis_connect_args)
     redis.ping()
-    log.info(f"Successfully connected to redis.")
+    log.info("Successfully connected to redis.")
   except Exception as e:
     log.critical("Unable to connect to redis.")
     raise SystemExit(e)
 
   sc_api_headers = {"Authorization": f"Bearer {sc_api_token}", "Content-Type":"application/json","Accept": "application/json"}
 
-  # Test connection to Service Catalogue
+  # Test connection to Service Catalogue
   try:
-    r = requests.head(f"{sc_api_endpoint}/_health", headers=sc_api_headers)
+    r = requests.head(f"{sc_api_endpoint}/_health", headers=sc_api_headers, timeout=20)
     log.info(f"Successfully connected to the Service Catalogue. {r.status_code}")
   except Exception as e:
     log.critical("Unable to connect to the Service Catalogue.")
@@ -153,7 +193,7 @@ if __name__ == '__main__':
   while True:
     log.info(sc_endpoint)
     try:
-      r = requests.get(sc_endpoint, headers=sc_api_headers)
+      r = requests.get(sc_endpoint, headers=sc_api_headers, timeout=20)
       log.debug(r)
       if r.status_code == 200:
         j_data = r.json()["data"]
@@ -161,12 +201,6 @@ if __name__ == '__main__':
         raise Exception(f"Received non-200 response from Service Catalogue: {r.status_code}")
     except Exception as e:
       log.error(f"Unable to connect to Service Catalogue API. {e}")
-    threads = list()
-
-    # Start health endpoint. 
-    httpHealth = threading.Thread(target=startHttpServer, daemon=True)
-    threads.append(httpHealth)
-    httpHealth.start()
 
     for component in j_data:
       for env in component["attributes"]["environments"]:
@@ -176,14 +210,14 @@ if __name__ == '__main__':
           if env["health_path"]:
             endpoint = f'{env["url"]}{env["health_path"]}'
             endpoint_type = "health"
-            t_health = threading.Thread(target=process_env, args=(c_name, e_name, endpoint, endpoint_type), daemon=True)
+            t_health = threading.Thread(target=process_env, args=(c_name, e_name, endpoint, endpoint_type, component), daemon=True)
             threads.append(t_health)
             t_health.start()
             log.info(f"Started thread for {c_name}:{endpoint_type}")
           if env["info_path"]:
             endpoint = f'{env["url"]}{env["info_path"]}'
             endpoint_type = "info"
-            t_info = threading.Thread(target=process_env, args=(c_name, e_name, endpoint, endpoint_type), daemon=True)
+            t_info = threading.Thread(target=process_env, args=(c_name, e_name, endpoint, endpoint_type, component), daemon=True)
             threads.append(t_info)
             t_info.start()
             log.info(f"Started thread for {c_name}:{endpoint_type}")
