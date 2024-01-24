@@ -23,7 +23,7 @@ log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
 def update_sc_component(c_id, data):
   try:
-    log.debug(data)
+    log.debug(f"Data to POST to strapi {data}")
     x = requests.put(f"{sc_api_endpoint}/v1/components/{c_id}", headers=sc_api_headers, json = {"data": data}, timeout=10)
     if x.status_code == 200:
       log.info(f"Successfully updated component id {c_id}: {x.status_code}")
@@ -107,24 +107,33 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
 
   # Try to get active agencies
   try:
-    active_agencies = output['activeAgencies']
-    # Need to get other env IDs for strapi update
-    other_env_ids = []
-    for e in component["attributes"]["environments"]:
-      if e_name == e["name"]:
-        e_id = e["id"]
-        # Existing active_agencies from the SC
-        e_active_agencies = e["active_agencies"]
-      else:
-        # Collect other env vars for strapi update.
-        other_env_ids.append({"id": e["id"]})
+    if ('activeAgencies' in output) and (endpoint_type == 'info'):
+      active_agencies = output['activeAgencies']
 
-    # Test if active_agencies has changed, only update SC if so.
-    if sorted(active_agencies) != sorted(e_active_agencies):
       # Need to add all other env IDs to the data payload otherwise strapi will delete them.
-      env_data = other_env_ids.append({"id": e_id, "active_agencies": active_agencies })
-      data = {"environments": env_data}
-      update_sc_component(c_id, data)
+      env_data = []
+      update_sc = False
+      for e in component["attributes"]["environments"]:
+        # Work on current environment
+        if e_name == e["name"]:
+          # Existing active_agencies from the SC
+          print(f"SC active_agencies: {e['active_agencies']}")
+          print(f"Existing active_agencies: {active_agencies}")
+
+          # if current active_agencies is empty/None set to empty list to enable comparison.
+          if e["active_agencies"] is None:
+            e["active_agencies"] = []
+          # Test if active_agencies has changed, and update SC if so.
+          if sorted(active_agencies) != sorted(e["active_agencies"]):
+            env_data.append({"id": e["id"], "active_agencies": active_agencies })
+            update_sc = True
+        else:
+          # Add rest of envs for strapi update.
+          env_data.append({"id": e["id"]})
+
+      if update_sc:
+        data = {"environments": env_data}
+        update_sc_component(c_id, data)
   except (KeyError, TypeError):
     pass
   except Exception as e:
