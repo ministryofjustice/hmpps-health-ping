@@ -9,6 +9,4 @@ generic-service:
 
 generic-prometheus-alerts:
   alertSeverity: hmpps-sre-alerts-dev
-  rdsAlertsDatabases:
-    cloud-platform-99a959bb5b512017: "Service Catalogue Dev Database"
 
