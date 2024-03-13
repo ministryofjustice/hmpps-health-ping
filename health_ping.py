@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 '''Health ping - fetches all /health and /info endpoints and stores the results in Redis'''
+from datetime import datetime
 import os
 import threading
 import logging
@@ -34,7 +35,7 @@ def update_sc_component(c_id, data):
 
 def update_app_version(app_version, c_name, e_name):
   version_key = f'version:{c_name}:{e_name}'
-  version_data={'v': app_version}
+  version_data={'v': app_version, 'dateAdded': datetime.now().isoformat()}
   try:
     # Get last entry to version stream
     last_entry_version = redis.xrevrange(version_key, max='+', min='-', count=1)
@@ -43,11 +44,13 @@ def update_app_version(app_version, c_name, e_name):
     else:
       # Must be first time entry.
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
+      redis.json().set('latest:versions', f'$.{version_key}', version_data)
       log.debug(f"First version entry = {version_key}:{version_data}")
       return
 
     if last_version != app_version:
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
+      redis.json().set('latest:versions', f'$.{version_key}', stream_data)
       log.info(f'Updating redis with new version. {version_key} = {version_data}')
   except Exception as e:
     log.error(e)
@@ -58,6 +61,8 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
   stream_key = f'{endpoint_type}:{c_name}:{e_name}'
   stream_data = {}
   stream_data.update({'url': endpoint})
+  stream_data.update({'dateAdded': datetime.now().isoformat()})
+  
   try:
     # Override default User-Agent other gets blocked by mod security.
     headers = {'User-Agent': 'hmpps-health-ping'}
@@ -141,6 +146,7 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
 
   try:
     redis.xadd(stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False)
+    redis.json().set(f'latest:{endpoint_type}', f'$.{stream_key}', stream_data)
     log.debug(f"{stream_key}: {stream_data}")
   except Exception as e:
     log.error(f"Unable to add data to redis stream. {e}")
@@ -183,6 +189,13 @@ if __name__ == '__main__':
     redis = redis.Redis(**redis_connect_args)
     redis.ping()
     log.info("Successfully connected to redis.")
+    # Create root objects for latest if they don't exist
+    if not redis.exists('latest:health'):
+      redis.json().set(f'latest:health', '$', {})
+    if not redis.exists('latest:info'):
+      redis.json().set('latest:info', '$', {})
+    if not redis.exists('latest:versions'):
+      redis.json().set('latest:versions', '$', {})
   except Exception as e:
     log.critical("Unable to connect to redis.")
     raise SystemExit(e)
