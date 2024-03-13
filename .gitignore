@@ -1,7 +1,9 @@
 # dotenv environment variables file
 .env*
+!.env.example
 
 .idea
 .vscode
 **/Chart.lock
 __pycache__/
+.python
