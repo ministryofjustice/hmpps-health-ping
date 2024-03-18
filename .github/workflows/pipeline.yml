@@ -23,3 +23,13 @@ jobs:
       environment: dev
       version: ${{ needs.build.outputs.version }}
     secrets: inherit
+
+  deploy-to-prod:
+    name: Deploy to prod
+    uses: ./.github/workflows/deploy.yml
+    needs: build
+    with:
+      github_environment: production
+      environment: prod
+      version: ${{ needs.build.outputs.version }}
+    secrets: inherit
