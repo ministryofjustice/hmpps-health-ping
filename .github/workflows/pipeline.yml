@@ -5,7 +5,15 @@ on:
     branches:
       - main
   workflow_dispatch: # Can be triggered manually from a branch
-
+    inputs:
+      environment:
+        description: 'Deployment Environment (valid values: "development", "production")'
+        required: true
+        default: 'development'
+      version:
+        description: 'Application version to deploy'
+        required: true
+        
 jobs:
   build:
     name: Build
@@ -13,8 +21,9 @@ jobs:
     with:
       push: true
     secrets: inherit
+  
 
-  deploy-to-dev:
+  deploy_to_dev:
     name: Deploy to dev
     uses: ./.github/workflows/deploy.yml
     needs: build
@@ -24,12 +33,15 @@ jobs:
       version: ${{ needs.build.outputs.version }}
     secrets: inherit
 
-  deploy-to-prod:
+
+  deploy_to_prod:
     name: Deploy to prod
     uses: ./.github/workflows/deploy.yml
-    needs: build
+    needs:
+      - deploy_to_dev # wait for the deploy_to_dev job to complete
     with:
       github_environment: production
       environment: prod
-      version: ${{ needs.build.outputs.version }}
+      version: ${{ github.event.inputs.version }}
+    if: github.event_name != 'schedule' # Skip this job if the workflow is triggered by schedule
     secrets: inherit

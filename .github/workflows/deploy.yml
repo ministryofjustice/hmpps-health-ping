@@ -32,46 +32,41 @@ on:
         options:
           - dev
           - prod
-      # version:
-      #   description: Image version
-      #   type: string
-      #   required: true
+      version:
+        description: Image version
+        type: string
+        required: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      matrix:
+        environment: [development, production]
     environment:
       name: ${{ inputs.github_environment }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set environment-specific variables
-        id: set_vars
-        run: |
-          if [ "${{ inputs.github_environment }}" = "prod" ]; then
-            echo "KUBE_CLUSTER=${{ secrets.PRODUCTION_KUBE_CLUSTER }}" >> $GITHUB_ENV
-            echo "KUBE_NAMESPACE=${{ secrets.PRODUCTION_KUBE_NAMESPACE }}" >> $GITHUB_ENV
-            echo "KUBE_TOKEN=${{ secrets.PRODUCTION_KUBE_TOKEN }}" >> $GITHUB_ENV
-            echo "KUBE_CERT=${{ secrets.PRODUCTION_KUBE_CERT }}" >> $GITHUB_ENV
-            echo "KUBE_API=https://${{ secrets.PRODUCTION_KUBE_CLUSTER }}" >> $GITHUB_ENV
-          else
-            echo "KUBE_CLUSTER=${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}" >> $GITHUB_ENV
-            echo "KUBE_NAMESPACE=${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}" >> $GITHUB_ENV
-            echo "KUBE_TOKEN=${{ secrets.DEVELOPMENT_KUBE_TOKEN }}" >> $GITHUB_ENV
-            echo "KUBE_CERT=${{ secrets.DEVELOPMENT_KUBE_CERT }}" >> $GITHUB_ENV
-            echo "KUBE_API=https://${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}" >> $GITHUB_ENV
-          fi 
-            
-      - name: Deploy to Cloud Platform
+      - name: Deploy to Dev
         uses: ./.github/actions/cloud-platform-deploy
         with:
-          environment: ${{ inputs.github_environment }}
-          version: ${{ inputs.github_environment }}
-          api: https://${{ secrets.KUBE_CLUSTER }}
-          cert: ${{ secrets.KUBE_CERT }}
-          cluster: ${{ secrets.KUBE_CLUSTER }}
-          namespace: ${{ secrets.KUBE_NAMESPACE }}
-          token: ${{ secrets.KUBE_TOKEN }}
+          environment: ${{ inputs.environment }}
+          version: ${{ inputs.version }}
+          api: https://${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
+          cert: ${{ secrets.DEVELOPMENT_KUBE_CERT }}
+          cluster: ${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
+          namespace: ${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}
+          token: ${{ secrets.DEVELOPMENT_KUBE_TOKEN }}
 
+      - name: Deploy to Prod
+        uses: ./.github/actions/cloud-platform-deploy
+        with:
+          environment: ${{ inputs.environment }}
+          version: ${{ inputs.version }}
+          api: https://${{ secrets.PRODUCTION_KUBE_CLUSTER }}
+          cert: ${{ secrets.PRODUCTION_KUBE_CERT }}
+          cluster: ${{ secrets.PRODUCTION_KUBE_CLUSTER }}
+          namespace: ${{ secrets.PRODUCTION_KUBE_NAMESPACE }}
+          token: ${{ secrets.PRODUCTION_KUBE_TOKEN }}  
