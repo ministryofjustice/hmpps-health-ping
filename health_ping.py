@@ -12,7 +12,6 @@ import http.server
 import socketserver
 
 sc_api_endpoint = os.getenv("SERVICE_CATALOGUE_API_ENDPOINT")
-sc_api_filter = os.getenv("SC_FILTER", '')
 sc_api_token = os.getenv("SERVICE_CATALOGUE_API_KEY")
 redis_host = os.getenv("REDIS_ENDPOINT")
 redis_port = os.getenv("REDIS_PORT")
@@ -21,6 +20,16 @@ redis_token = os.getenv("REDIS_TOKEN", "")
 redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "360"))
 refresh_interval = int(os.getenv("REFRESH_INTERVAL","60"))
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+
+# limit results for testing/dev
+# See strapi filter syntax https://docs.strapi.io/dev-docs/api/rest/filters-locale-publication
+# Example filter string = '&filters[name][$contains]=example'
+# sc_api_filter = '&filters[name][$contains]=book-a-prison-visit-staff-ui'
+sc_api_filter = os.getenv("SERVICE_CATALOGUE_FILTER", '')
+
+# Example Sort filter
+#SC_SORT='&sort=updatedAt:asc'
+
 
 def update_sc_component(c_id, data):
   try:

@@ -31,6 +31,7 @@ on:
         required: true
         options:
           - dev
+          - prod
       version:
         description: Image version
         type: string
@@ -41,12 +42,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      matrix:
+        environment: [development, production]
     environment:
       name: ${{ inputs.github_environment }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Deploy to Cloud Platform
+      - name: Deploy to Dev
         uses: ./.github/actions/cloud-platform-deploy
         with:
           environment: ${{ inputs.environment }}
@@ -57,3 +60,13 @@ jobs:
           namespace: ${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}
           token: ${{ secrets.DEVELOPMENT_KUBE_TOKEN }}
 
+      - name: Deploy to Prod
+        uses: ./.github/actions/cloud-platform-deploy
+        with:
+          environment: ${{ inputs.environment }}
+          version: ${{ inputs.version }}
+          api: https://${{ secrets.PRODUCTION_KUBE_CLUSTER }}
+          cert: ${{ secrets.PRODUCTION_KUBE_CERT }}
+          cluster: ${{ secrets.PRODUCTION_KUBE_CLUSTER }}
+          namespace: ${{ secrets.PRODUCTION_KUBE_NAMESPACE }}
+          token: ${{ secrets.PRODUCTION_KUBE_TOKEN }}  
