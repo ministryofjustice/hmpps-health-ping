@@ -43,5 +43,4 @@ jobs:
       github_environment: production
       environment: prod
       version: ${{ github.event.inputs.version }}
-    if: github.event_name != 'schedule' # Skip this job if the workflow is triggered by schedule
     secrets: inherit

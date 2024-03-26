@@ -29,8 +29,6 @@ sc_api_filter = os.getenv("SERVICE_CATALOGUE_FILTER", '')
 
 # Example Sort filter
 #SC_SORT='&sort=updatedAt:asc'
-sc_sort = ''
-
 
 
 def update_sc_component(c_id, data):
