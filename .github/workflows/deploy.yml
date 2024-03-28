@@ -70,7 +70,7 @@ jobs:
           environment: ${{ inputs.environment }}
           version: ${{ inputs.version }}
           api: https://${{ secrets.PRODUCTION_KUBE_CLUSTER }}
-          cert: ${{ secrets.DPRODUCTION_KUBE_CERT }}
+          cert: ${{ secrets.PRODUCTION_KUBE_CERT }}
           cluster: ${{ secrets.PRODUCTION_KUBE_CLUSTER }}
           namespace: ${{ secrets.PRODUCTION_KUBE_NAMESPACE }}
           token: ${{ secrets.PRODUCTION_KUBE_TOKEN }}
