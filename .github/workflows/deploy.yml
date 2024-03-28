@@ -8,7 +8,7 @@ on:
         type: string
         required: true        
       environment:
-        description: The name of the environment to deploy to
+        description: The name of the environment to deploy to (dev/prod)
         type: string
         required: true
       version:
@@ -24,12 +24,14 @@ on:
         required: true
         options:
           - development
+          - production
       environment:
         description: Environment
         type: choice
         required: true
         options:
           - dev
+          - prod
       version:
         description: Image version
         type: string
@@ -44,8 +46,13 @@ jobs:
       name: ${{ inputs.github_environment }}
     steps:
       - uses: actions/checkout@v3
+      - uses: ./.github/actions/get-env-details
+        id: env
+        with:
+          environment: ${{ inputs.environment }}
 
       - name: Deploy to Dev
+        # if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
         uses: ./.github/actions/cloud-platform-deploy
         with:
           environment: ${{ inputs.environment }}
