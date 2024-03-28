@@ -23,9 +23,10 @@ jobs:
     secrets: inherit
   
 
+    
   deploy_to_dev:
     name: Deploy to dev
-    uses: ./.github/workflows/deploy_dev.yml
+    uses: ./.github/workflows/deploy.yml
     needs: build
     with:
       github_environment: development
@@ -36,7 +37,7 @@ jobs:
 
   deploy_to_prod:
     name: Deploy to prod
-    uses: ./.github/workflows/deploy_prod.yml
+    uses: ./.github/workflows/deploy.yml
     needs:
       - deploy_to_dev # wait for the deploy_to_dev job to complete
     with:
