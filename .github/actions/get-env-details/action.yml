@@ -13,12 +13,6 @@ outputs:
   cloud-platform-namespace:
     description: The name of the corresponding Cloud Platform namespace
     value: ${{ steps.cloud-platform.outputs.namespace }}
-  # delius-name:
-  #   description: The full name of the corresponding Delius environment
-  #   value: ${{ steps.delius.outputs.name }}
-  # delius-short-name:
-  #   description: The short name of the corresponding Delius environment
-  #   value: ${{ steps.delius.outputs.short-name }}
 
 runs:
   using: "composite"
@@ -29,10 +23,7 @@ runs:
       id: cloud-platform
       shell: bash
       run: |
-        if [ '${{ inputs.github_environment }}' == 'dev' ]; then
-          echo "namespace=${namespace}"
-        else
-          namespace="prod"
-          echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
-          echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
-        fi
+        if [ '${{ inputs.environment }}' == 'dev' ];    then namespace='dev'; fi
+        if [ '${{ inputs.environment }}' == 'prod' ];    then namespace='prod'; fi
+        echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
+        echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"

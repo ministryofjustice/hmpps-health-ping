@@ -51,6 +51,17 @@ jobs:
         with:
           environment: ${{ inputs.environment }}
 
+      - name: Set Deployment namespace
+        id: set_namespace
+        run: |
+          if [[ "${{ inputs.environment }}" == "dev" ]]; then
+            echo "::set-output name=namespace::dev"
+          elif [[ "${{ inputs.environment }}" == "prod" ]]; then
+            echo "::set-output name=namespace::prod"
+          else
+          echo "Invalid environment specified: ${{ inputs.environment }}"
+
+
       - name: Deploy to Dev
         # if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
         uses: ./.github/actions/cloud-platform-deploy
