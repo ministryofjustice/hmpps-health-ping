@@ -59,7 +59,7 @@ jobs:
           elif [[ "${{ inputs.environment }}" == "prod" ]]; then
             echo "::set-output name=namespace::prod"
           else
-          echo "Invalid environment specified: ${{ inputs.environment }}"
+            echo "Invalid environment specified: ${{ inputs.environment }}"
 
 
       - name: Deploy to Dev
