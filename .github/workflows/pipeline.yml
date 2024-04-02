@@ -38,8 +38,8 @@ jobs:
   deploy_to_prod:
     name: Deploy to prod
     uses: ./.github/workflows/deploy.yml
-    needs:
-      - deploy_to_dev # wait for the deploy_to_dev job to complete
+    # needs:
+    #   - deploy_to_dev # wait for the deploy_to_dev job to complete
     with:
       github_environment: production
       environment: prod
