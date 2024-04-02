@@ -32,7 +32,7 @@ runs:
         if [ '${{ inputs.github_environment }}' == 'dev' ]; then
           echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
           echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
-        else [ '${{ inputs.github_environment }}' == 'prod' ]; then
+        else [ '${{ inputs.github_environment }}' == 'prod' ];
           echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
           echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
         fi
