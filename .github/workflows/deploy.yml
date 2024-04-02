@@ -43,7 +43,8 @@ jobs:
     strategy:
       fail-fast: false
 
-
+    environment:
+      name: ${{ inputs.github_environment }}  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
