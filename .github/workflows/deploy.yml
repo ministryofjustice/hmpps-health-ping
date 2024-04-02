@@ -54,25 +54,25 @@ jobs:
       #   with:
       #     environment: ${{ inputs.github_environment }}
 
-      - name: Set Kubernetes Namespace secrets
-        id: set_namespace_secrets
-        run: |
-          if [[ "${{ inputs.github_environment }}" == "development" ]]; then
-            api=https://"{{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
-            cert="${{ secrets.DEVELOPMENT_KUBE_CERT }}"
-            cluster="${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
-            namespace="${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}"
-            token="${{ secrets.DEVELOPMENT_KUBE_TOKEN }}"
-          elif [[ "${{ inputs.github_environment }}" == "production" ]]; then
-            api=https://"{{ secrets.PRODUCTION_KUBE_CLUSTER }}"
-            cert="${{ secrets.PRODUCTION_KUBE_CERT }}"
-            cluster="${{ secrets.PRODUCTION_KUBE_CLUSTER }}"
-            namespace="${{ secrets.PRODUCTION_KUBE_NAMESPACE }}"
-            token="${{ secrets.PRODUCTION_KUBE_TOKEN }}"
-          else
-            echo "Invalid Github environment/namespace specified: ${{ inputs.github_environment }}"
-            exit 1
-          fi
+      # - name: Set Kubernetes Namespace secrets
+      #   id: set_namespace_secrets
+      #   run: |
+      #     if [[ "${{ inputs.github_environment }}" == "development" ]]; then
+      #       api=https://"{{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
+      #       cert="${{ secrets.DEVELOPMENT_KUBE_CERT }}"
+      #       cluster="${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
+      #       namespace="${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}"
+      #       token="${{ secrets.DEVELOPMENT_KUBE_TOKEN }}"
+      #     elif [[ "${{ inputs.github_environment }}" == "production" ]]; then
+      #       api=https://"{{ secrets.PRODUCTION_KUBE_CLUSTER }}"
+      #       cert="${{ secrets.PRODUCTION_KUBE_CERT }}"
+      #       cluster="${{ secrets.PRODUCTION_KUBE_CLUSTER }}"
+      #       namespace="${{ secrets.PRODUCTION_KUBE_NAMESPACE }}"
+      #       token="${{ secrets.PRODUCTION_KUBE_TOKEN }}"
+      #     else
+      #       echo "Invalid Github environment/namespace specified: ${{ inputs.github_environment }}"
+      #       exit 1
+      #     fi
 
       - name: Deploy to Dev
       # if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
