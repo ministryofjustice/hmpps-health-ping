@@ -79,7 +79,7 @@ jobs:
           cluster: ${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
           namespace: ${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}
           token: ${{ secrets.DEVELOPMENT_KUBE_TOKEN }}
-  
+
       - name: Deploy to Prod
       # if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
           uses: ./.github/actions/cloud-platform-deploy
