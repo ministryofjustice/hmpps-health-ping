@@ -2,7 +2,7 @@ name: Get environment details
 description: Map the GitHub environment name to the corresponding Developer Portal namespace environment details
 
 inputs:
-  github_environment:
+  environment:
     description: GitHub environment name
     required: true
 
@@ -23,10 +23,7 @@ runs:
       id: cloud-platform
       shell: bash
       run: |
-        if [ '${{ inputs.github_environment }}' == 'dev' ]; then
-          echo "namespace=${namespace}"
-        else
-          namespace="prod"
-          echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
-          echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
-        fi
+        if [ '${{ inputs.environment }}' == 'dev' ];    then namespace='development'; fi
+        if [ '${{ inputs.environment }}' == 'prod' ];    then namespace='production'; fi
+        echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
+        echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
