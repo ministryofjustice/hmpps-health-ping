@@ -54,10 +54,10 @@ jobs:
       - name: Set Deployment namespace
         id: set_namespace
         run: |
-          if [[ "${{ inputs.environment }}" == "dev" ]]; then
-            echo "::set-output name=namespace::dev"
-          elif [[ "${{ inputs.environment }}" == "prod" ]]; then
-            echo "::set-output name=namespace::prod"
+          if [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "::set-output name=namespace::production"
+          elif [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "::set-output name=namespace::production"
           else
             echo "Invalid environment specified: ${{ inputs.environment }}"
           exit 1
