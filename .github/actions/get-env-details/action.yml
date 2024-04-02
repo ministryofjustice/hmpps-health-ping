@@ -29,11 +29,13 @@ runs:
       id: cloud-platform
       shell: bash
       run: |
-        if [ '${{ inputs.github_environment }}' == 'dev' ];    then namespace='dev'; fi
-        if [ '${{ inputs.github_environment }}' == 'prod' ];    then namespace='prod'; fi
-        echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
-        echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
-
+        if [ '${{ inputs.github_environment }}' == 'dev' ];    then namespace='dev'; then
+          echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
+          echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
+        elif [ '${{ inputs.github_environment }}' == 'prod' ];    then namespace='prod'; then
+          echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
+          echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
+        fi
     # - name: Map GitHub environment to Delius environment name
     #   id: delius
     #   shell: bash
