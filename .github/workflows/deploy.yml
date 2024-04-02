@@ -51,17 +51,17 @@ jobs:
         with:
           environment: ${{ inputs.environment }}
 
-      - name: Set Deployment namespace
-        id: set_namespace
-        run: |
-          if [[ "${{ inputs.github_environment }}" == "dev" ]]; then
-            echo "::set-output name=namespace::dev"
-          elif [[ "${{ inputs.github_environment }}" == "prod" ]]; then
-            echo "::set-output name=namespace::prod"
-          else
-            echo "Invalid environment specified: ${{ inputs.github_environment }}"
-          exit 1
-          fi
+      # - name: Set Deployment namespace
+      #   id: set_namespace
+      #   run: |
+      #     if [[ "${{ inputs.github_environment }}" == "dev" ]]; then
+      #       echo "::set-output name=namespace::dev"
+      #     elif [[ "${{ inputs.github_environment }}" == "prod" ]]; then
+      #       echo "::set-output name=namespace::prod"
+      #     else
+      #       echo "Invalid environment specified: ${{ inputs.github_environment }}"
+      #     exit 1
+      #     fi
 
 
       - name: Deploy to Dev
