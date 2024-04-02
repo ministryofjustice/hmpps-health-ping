@@ -44,7 +44,7 @@ jobs:
       fail-fast: false
 
     environment:
-      name: ${{ inputs.environment }}  
+      name: ${{ inputs.github_environment }}  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -52,7 +52,7 @@ jobs:
         uses: ./.github/actions/get-env-details
         id: env
         with:
-          environment: ${{ inputs.environment }}
+          environment: ${{ inputs.github_environment }}
 
       - name: Set Kubernetes Namespace secrets
         id: set_namespace_secrets
