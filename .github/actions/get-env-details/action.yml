@@ -30,6 +30,7 @@ runs:
       shell: bash
       run: |
         if [ '${{ inputs.github_environment }}' == 'dev' ]; then
+          echo "namespace=${namespace}"
         else
           namespace="prod"
           echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
