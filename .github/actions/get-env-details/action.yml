@@ -33,7 +33,7 @@ runs:
           echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
           echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
         else
-          echo "::set-output name=namespace::prod" 
+          namespace="prod" 
           echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
           echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
         fi
