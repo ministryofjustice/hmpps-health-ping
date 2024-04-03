@@ -23,7 +23,7 @@ runs:
       id: cloud-platform
       shell: bash
       run: |
-        if [ '${{ inputs.environment }}' == 'development' ];    then namespace='dev'; fi
-        if [ '${{ inputs.environment }}' == 'production' ];    then namespace='prod'; fi
+        if [ '${{ inputs.environment }}' == 'dev' ];    then namespace='dev'; fi
+        if [ '${{ inputs.environment }}' == 'prod' ];    then namespace='prod'; fi
         echo "namespace=${namespace}" | tee -a "$GITHUB_OUTPUT"
         echo "values-file=values-${namespace}.yml" | tee -a "$GITHUB_OUTPUT"
