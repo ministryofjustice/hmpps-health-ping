@@ -30,8 +30,8 @@ on:
         type: choice
         required: true
         options:
-          - dev
-          - prod
+          - development
+          - production
       version:
         description: Image version
         type: string
