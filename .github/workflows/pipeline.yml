@@ -4,16 +4,37 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: # Can be triggered manually from a branch
+  # workflow_dispatch: # Can be triggered manually from a branch
+  #   inputs:
+  #     environment:
+  #       description: 'Deployment Environment (valid values: "development", "production")'
+  #       required: true
+  #       default: 'development'
+  #     version:
+  #       description: 'Application version to deploy'
+  #       required: true
+   
+  workflow_dispatch:
     inputs:
+      github_environment:
+        description: The name of the github environment for deployment secrets/Namespace
+        type: choice
+        required: true
+        options:
+          - development
+          - production
       environment:
-        description: 'Deployment Environment (valid values: "development", "production")'
+        description: Environment
+        type: choice
         required: true
-        default: 'development'
+        options:
+          - dev
+          - prod
       version:
-        description: 'Application version to deploy'
-        required: true
-        
+        description: Image version
+        type: string
+        required: true      
+
 jobs:
   build:
     name: Build
