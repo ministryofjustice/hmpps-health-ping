@@ -53,7 +53,7 @@ jobs:
         id: env_details
         uses: ./.github/actions/get-env-details
         with:
-          github_environment: ${{ github.event.inputs.github_environment }}
+          environment: ${{ inputs.environment }}
 
       # - name: Set Kubernetes Namespace secrets
       #   id: set_namespace_secrets
