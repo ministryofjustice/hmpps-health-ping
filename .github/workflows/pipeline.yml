@@ -16,13 +16,13 @@ on:
    
   workflow_dispatch:
     inputs:
-      github_environment:
-        description: The name of the github environment for deployment secrets/Namespace
-        type: choice
-        required: true
-        options:
-          - development
-          - production
+      # github_environment:
+      #   description: The name of the github environment for deployment secrets/Namespace
+      #   type: choice
+      #   required: true
+      #   options:
+      #     - development
+      #     - production
       environment:
         description: Environment
         type: choice
@@ -50,7 +50,6 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     needs: build
     with:
-      github_environment: development
       environment: dev
       version: ${{ needs.build.outputs.version }}
     secrets: inherit
@@ -62,7 +61,6 @@ jobs:
     # needs:
     #   - deploy_to_dev # wait for the deploy_to_dev job to complete
     with:
-      github_environment: production
       environment: prod
       version: ${{ github.event.inputs.version }}
     secrets: inherit

@@ -8,7 +8,7 @@ inputs:
 
 outputs:
   values-file:
-    description: The filename for the values file containing github_environment configuration
+    description: The filename for the values file containing environment configuration
     value: ${{ steps.cloud-platform.outputs.values-file }}
   cloud-platform-namespace:
     description: The name of the corresponding Cloud Platform namespace
