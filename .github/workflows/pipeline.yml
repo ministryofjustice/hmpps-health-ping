@@ -3,7 +3,8 @@ name: Pipeline
 on:
   push:
     branches:
-      - main
+      # - main
+      - HEAT-227
   # workflow_dispatch: # Can be triggered manually from a branch
   #   inputs:
   #     environment:
