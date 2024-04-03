@@ -1,5 +1,5 @@
 name: Get environment details
-description: Map the GitHub environment name to the corresponding Developer Portal namespace environment details
+description: Map the GitHub environment name to the corresponding Namespace environment details
 
 inputs:
   environment:
