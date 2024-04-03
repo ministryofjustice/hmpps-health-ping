@@ -3,10 +3,10 @@ name: Deploy
 on:
   workflow_call:
     inputs:
-      github_environment:
-        description: The name of the github environment for deployment secrets/Namespace
-        type: string
-        required: true        
+      # github_environment:
+      #   description: The name of the github environment for deployment secrets/Namespace
+      #   type: string
+      #   required: true        
       environment:
         description: The name of the environment to deploy to (dev/prod)
         type: string
@@ -18,20 +18,20 @@ on:
 
   workflow_dispatch:
     inputs:
-      github_environment:
-        description: The name of the github environment for deployment secrets/Namespace
-        type: choice
-        required: true
-        options:
-          - development
-          - production
+      # github_environment:
+      #   description: The name of the github environment for deployment secrets/Namespace
+      #   type: choice
+      #   required: true
+      #   options:
+      #     - development
+      #     - production
       environment:
         description: Environment
         type: choice
         required: true
         options:
-          - development
-          - production
+          - dev
+          - prod
       version:
         description: Image version
         type: string
@@ -44,7 +44,7 @@ jobs:
       fail-fast: false
 
     environment:
-      name: ${{ inputs.github_environment }}  
+      name: ${{ inputs.environment }}  
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
