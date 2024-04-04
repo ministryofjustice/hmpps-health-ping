@@ -29,11 +29,11 @@ runs:
   steps:
     - uses: actions/checkout@v4
 
-    - name: Get environment details
-      uses: ./.github/actions/get-env-details
-      id: env
-      with:
-        environment: ${{ inputs.environment }}
+    # - name: Get environment details
+    #   uses: ./.github/actions/get-env-details
+    #   id: env
+    #   with:
+    #     environment: ${{ inputs.environment }}
 
     - name: Authenticate
       uses: ./.github/actions/cloud-platform-auth
