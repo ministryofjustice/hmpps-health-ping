@@ -29,8 +29,8 @@ on:
         type: choice
         required: true
         options:
-          - development
-          - production
+          - dev
+          - prod
       version:
         description: Image version
         type: string
