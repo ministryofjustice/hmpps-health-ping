@@ -117,3 +117,4 @@ jobs:
             echo "Invalid Github environment/namespace specified: ${{ inputs.environment }}"
             exit 1
           fi
+          uses: ./.github/actions/cloud-platform-deploy
