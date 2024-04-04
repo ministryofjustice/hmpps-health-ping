@@ -2,11 +2,7 @@ name: Deploy
 
 on:
   workflow_call:
-    inputs:
-      # github_environment:
-      #   description: The name of the github environment for deployment secrets/Namespace
-      #   type: string
-      #   required: true        
+    inputs:      
       environment:
         description: The name of the environment to deploy to (dev/prod)
         type: string
@@ -18,13 +14,6 @@ on:
 
   workflow_dispatch:
     inputs:
-      # github_environment:
-      #   description: The name of the github environment for deployment secrets/Namespace
-      #   type: choice
-      #   required: true
-      #   options:
-      #     - development
-      #     - production
       environment:
         description: Environment
         type: choice
@@ -52,8 +41,7 @@ jobs:
         with:
           environment: ${{ inputs.environment }}
 
-       
-      - name: Deploy to Dev
+      - name: Deploy to Platform
       # if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
         uses: ./.github/actions/cloud-platform-deploy
         with:
