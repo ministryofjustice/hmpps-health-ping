@@ -46,48 +46,24 @@ jobs:
     environment:
       name: ${{ inputs.environment }}  
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: deploy
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/get-env-details
+        id: env
+        with:
+          environment: ${{ inputs.environment }}
+
+       
+      - name: Deploy to Dev
+      # if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
         uses: ./.github/actions/cloud-platform-deploy
-      # - name: Get Env details
-      #   id: env_details
-      #   uses: ./.github/actions/get-env-details
-      #   with:
-      #     environment: ${{ inputs.environment }}
-
-      - name: Set Kubernetes Namespace secrets
-        id: set_namespace_secrets
-        run: |
-          if [[ "${{ inputs.environment }}" == "development" ]]; then
-            api=https://"{{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
-            cert="${{ secrets.DEVELOPMENT_KUBE_CERT }}"
-            cluster="${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
-            namespace="${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}"
-            token="${{ secrets.DEVELOPMENT_KUBE_TOKEN }}"
-          elif [[ "${{ inputs.environment }}" == "production" ]]; then
-            api=https://"{{ secrets.PRODUCTION_KUBE_CLUSTER }}"
-            cert="${{ secrets.PRODUCTION_KUBE_CERT }}"
-            cluster="${{ secrets.PRODUCTION_KUBE_CLUSTER }}"
-            namespace="${{ secrets.PRODUCTION_KUBE_NAMESPACE }}"
-            token="${{ secrets.PRODUCTION_KUBE_TOKEN }}"
-          else
-            echo "Invalid Github environment/namespace specified: ${{ inputs.environment }}"
-            exit 1
-          fi
-          
-      # - name: Deploy to Dev
-      # # if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
-      #   uses: ./.github/actions/cloud-platform-deploy
-      #   with:
-      #     environment: ${{ inputs.environment }}
-      #     version: ${{ inputs.version }}
-      #     api: https://${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
-      #     cert: ${{ secrets.DEVELOPMENT_KUBE_CERT }}
-      #     cluster: ${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
-      #     namespace: ${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}
-      #     token: ${{ secrets.DEVELOPMENT_KUBE_TOKEN }}
-
+        with:
+          environment: ${{ inputs.environment }}
+          version: ${{ inputs.version }}
+          api: https://${{ secrets.KUBE_CLUSTER }}
+          cert: ${{ secrets.KUBE_CERT }}
+          cluster: ${{ secrets.KUBE_CLUSTER }}
+          namespace: ${{ secrets.KUBE_NAMESPACE }}
+          token: ${{ secrets.KUBE_TOKEN }}
 
       # - name: Deploy to Prod
       # # if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
@@ -134,3 +110,22 @@ jobs:
 #         token: ${{ secrets.DEVELOPMENT_KUBE_TOKEN }}    
 
 
+      # - name: Set Kubernetes Namespace secrets
+      #   id: set_namespace_secrets
+      #   run: |
+      #     if [[ "${{ inputs.environment }}" == "development" ]]; then
+      #       api=https://"{{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
+      #       cert="${{ secrets.DEVELOPMENT_KUBE_CERT }}"
+      #       cluster="${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
+      #       namespace="${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}"
+      #       token="${{ secrets.DEVELOPMENT_KUBE_TOKEN }}"
+      #     elif [[ "${{ inputs.environment }}" == "production" ]]; then
+      #       api=https://"{{ secrets.PRODUCTION_KUBE_CLUSTER }}"
+      #       cert="${{ secrets.PRODUCTION_KUBE_CERT }}"
+      #       cluster="${{ secrets.PRODUCTION_KUBE_CLUSTER }}"
+      #       namespace="${{ secrets.PRODUCTION_KUBE_NAMESPACE }}"
+      #       token="${{ secrets.PRODUCTION_KUBE_TOKEN }}"
+      #     else
+      #       echo "Invalid Github environment/namespace specified: ${{ inputs.environment }}"
+      #       exit 1
+      #     fi
