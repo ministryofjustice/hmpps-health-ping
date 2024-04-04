@@ -59,12 +59,14 @@ jobs:
         id: set_namespace_secrets
         run: |
           if [[ "${{ inputs.environment }}" == "development" ]]; then
+          uses: ./.github/actions/cloud-platform-deploy
             api=https://"{{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
             cert="${{ secrets.DEVELOPMENT_KUBE_CERT }}"
             cluster="${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
             namespace="${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}"
             token="${{ secrets.DEVELOPMENT_KUBE_TOKEN }}"
           elif [[ "${{ inputs.environment }}" == "production" ]]; then
+          uses: ./.github/actions/cloud-platform-deploy
             api=https://"{{ secrets.PRODUCTION_KUBE_CLUSTER }}"
             cert="${{ secrets.PRODUCTION_KUBE_CERT }}"
             cluster="${{ secrets.PRODUCTION_KUBE_CLUSTER }}"
