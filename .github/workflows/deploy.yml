@@ -51,7 +51,7 @@ jobs:
             cluster="${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}"
             namespace="${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}"
             token="${{ secrets.DEVELOPMENT_KUBE_TOKEN }}"
-            ./.github/actions/cloud-platform-deploy
+            bash ./.github/actions/cloud-platform-deploy
           elif [[ "${{ inputs.environment }}" == "production" ]]; then
             api=https://"{{ secrets.PRODUCTION_KUBE_CLUSTER }}"
             cert="${{ secrets.PRODUCTION_KUBE_CERT }}"
