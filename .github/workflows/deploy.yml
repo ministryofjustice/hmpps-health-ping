@@ -36,7 +36,6 @@ jobs:
       name: ${{ inputs.environment }}  
     steps:
       - uses: actions/checkout@v4
- 
       - uses: ./.github/actions/get-env-details
         id: env
         with:

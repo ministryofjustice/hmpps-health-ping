@@ -52,7 +52,7 @@ runs:
         cd helm_deploy/${{ github.event.repository.name }}
         yq -i ".appVersion = \"${{ inputs.version }}\"" "Chart.yaml"
         helm dependency update .
-        echo $pwd
+        # echo $pwd
         exec helm upgrade '${{ github.event.repository.name }}' . \
           --atomic \
           --history-max 10 \
