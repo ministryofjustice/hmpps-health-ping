@@ -6,19 +6,19 @@ on:
       # - main
       - HEAT-227
 
-  # workflow_dispatch:
-  #   inputs:
-  #     environment:
-  #       description: Environment
-  #       type: choice
-  #       required: true
-  #       options:
-  #         - development
-  #         - production
-  #     version:
-  #       description: Image version
-  #       type: string
-  #       required: true      
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment
+        type: choice
+        required: true
+        options:
+          - development
+          - production
+      version:
+        description: Image version
+        type: string
+        required: true      
 
 jobs:
   build:
