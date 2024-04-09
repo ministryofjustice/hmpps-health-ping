@@ -55,7 +55,7 @@ runs:
         yq -i ".appVersion = \"${{ inputs.version }}\"" "helm_deploy/${{ github.event.repository.name }}/Chart.yaml"
         # helm dependency update .
         helm dependency update "helm_deploy/${{ github.event.repository.name }}"
-        exec helm upgrade '${{ github.event.repository.name }}' '${{ github.event.repository.name }}/${{ github.event.repository.name }}' \
+        exec helm upgrade '${{ github.event.repository.name }}' 'helm_deploy/${{ github.event.repository.name }}' \
           --atomic \
           --history-max 10 \
           --force \
