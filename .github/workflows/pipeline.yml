@@ -3,8 +3,7 @@ name: Pipeline
 on:
   push:
     branches:
-      # - main
-      - HEAT-227
+      - main
 
   workflow_dispatch:
     inputs:

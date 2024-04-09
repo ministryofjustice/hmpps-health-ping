@@ -47,13 +47,9 @@ runs:
     - name: Deploy
       shell: bash
       run: |
-        # yq -i ".appVersion = \"${{ inputs.version }}\"" "projects/${{ inputs.project }}/deploy/Chart.yaml"
-
         eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
         brew install helm
-        # cd helm_deploy/${{ github.event.repository.name }}
         yq -i ".appVersion = \"${{ inputs.version }}\"" "helm_deploy/${{ github.event.repository.name }}/Chart.yaml"
-        # helm dependency update .
         helm dependency update "helm_deploy/${{ github.event.repository.name }}"
         exec helm upgrade '${{ github.event.repository.name }}' 'helm_deploy/${{ github.event.repository.name }}' \
           --atomic \
