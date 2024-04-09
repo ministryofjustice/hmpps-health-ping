@@ -36,10 +36,10 @@ jobs:
       name: ${{ inputs.environment }}  
     steps:
       - uses: actions/checkout@v4
-      # - uses: ./.github/actions/get-env-details
-      #   id: env
-      #   with:
-      #     environment: ${{ inputs.environment }}   
+      - uses: ./.github/actions/get-env-details
+        id: env
+        with:
+          environment: ${{ inputs.environment }}   
 
       # - name: Set Kubernetes Namespace secrets
       #   id: set_namespace_secrets
@@ -65,7 +65,7 @@ jobs:
 
 
       - name: Deploy to Platform
-      #  if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
+        # if: ${{ steps.check_files.outputs.files_exists == 'true' && steps.enabled.outputs.enabled == 'true' }}  
         uses: ./.github/actions/cloud-platform-deploy
         with:
           environment: ${{ inputs.environment }}
