@@ -4,16 +4,21 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: # Can be triggered manually from a branch
+
+  workflow_dispatch:
     inputs:
       environment:
-        description: 'Deployment Environment (valid values: "development", "production")'
+        description: Environment
+        type: choice
         required: true
-        default: 'development'
+        options:
+          - development
+          - production
       version:
-        description: 'Application version to deploy'
-        required: true
-        
+        description: Image version
+        type: string
+        required: true      
+
 jobs:
   build:
     name: Build
@@ -22,17 +27,14 @@ jobs:
       push: true
     secrets: inherit
   
-
   deploy_to_dev:
     name: Deploy to dev
     uses: ./.github/workflows/deploy.yml
     needs: build
     with:
-      github_environment: development
-      environment: dev
+      environment: development
       version: ${{ needs.build.outputs.version }}
     secrets: inherit
-
 
   deploy_to_prod:
     name: Deploy to prod
@@ -40,7 +42,6 @@ jobs:
     needs:
       - deploy_to_dev # wait for the deploy_to_dev job to complete
     with:
-      github_environment: production
-      environment: prod
+      environment: production
       version: ${{ github.event.inputs.version }}
     secrets: inherit

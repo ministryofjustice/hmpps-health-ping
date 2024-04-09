@@ -2,13 +2,9 @@ name: Deploy
 
 on:
   workflow_call:
-    inputs:
-      github_environment:
-        description: The name of the github environment for deployment secrets
-        type: string
-        required: true        
+    inputs:      
       environment:
-        description: The name of the environment to deploy to
+        description: The name of the environment to deploy to (dev/prod)
         type: string
         required: true
       version:
@@ -18,20 +14,13 @@ on:
 
   workflow_dispatch:
     inputs:
-      github_environment:
-        description: The name of the github environment for deployment secrets
-        type: choice
-        required: true
-        options:
-          - development
-          - production
       environment:
         description: Environment
         type: choice
         required: true
         options:
-          - dev
-          - prod
+          - development
+          - production
       version:
         description: Image version
         type: string
@@ -42,31 +31,23 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        environment: [development, production]
+
     environment:
-      name: ${{ inputs.github_environment }}
+      name: ${{ inputs.environment }}  
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/get-env-details
+        id: env
+        with:
+          environment: ${{ inputs.environment }}
 
-      - name: Deploy to Dev
+      - name: Deploy to Platform
         uses: ./.github/actions/cloud-platform-deploy
         with:
           environment: ${{ inputs.environment }}
           version: ${{ inputs.version }}
-          api: https://${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
-          cert: ${{ secrets.DEVELOPMENT_KUBE_CERT }}
-          cluster: ${{ secrets.DEVELOPMENT_KUBE_CLUSTER }}
-          namespace: ${{ secrets.DEVELOPMENT_KUBE_NAMESPACE }}
-          token: ${{ secrets.DEVELOPMENT_KUBE_TOKEN }}
-
-      - name: Deploy to Prod
-        uses: ./.github/actions/cloud-platform-deploy
-        with:
-          environment: ${{ inputs.environment }}
-          version: ${{ inputs.version }}
-          api: https://${{ secrets.PRODUCTION_KUBE_CLUSTER }}
-          cert: ${{ secrets.PRODUCTION_KUBE_CERT }}
-          cluster: ${{ secrets.PRODUCTION_KUBE_CLUSTER }}
-          namespace: ${{ secrets.PRODUCTION_KUBE_NAMESPACE }}
-          token: ${{ secrets.PRODUCTION_KUBE_TOKEN }}  
+          api: https://${{ secrets.KUBE_CLUSTER }}
+          cert: ${{ secrets.KUBE_CERT }}
+          cluster: ${{ secrets.KUBE_CLUSTER }}
+          namespace: ${{ secrets.KUBE_NAMESPACE }}
+          token: ${{ secrets.KUBE_TOKEN }}    
