@@ -53,6 +53,7 @@ generic-service:
     hmpps-health-ping:
       SERVICE_CATALOGUE_API_ENDPOINT: "SERVICE_CATALOGUE_API_ENDPOINT"
       SERVICE_CATALOGUE_API_KEY: "SERVICE_CATALOGUE_API_KEY"
+      SERVICE_CATALOGUE_FILTER: "SERVICE_CATALOGUE_FILTER"
     elasticache-redis:
       REDIS_ENDPOINT: "primary_endpoint_address"
       REDIS_TOKEN: "auth_token"
