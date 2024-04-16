@@ -12,4 +12,4 @@ generic-prometheus-alerts:
 
 namespace_secrets:
   hmpps-health-ping:
-    SERVICE_CATALOGUE_FILTER: "SERVICE_CATALOGUE_FILTER"
+
