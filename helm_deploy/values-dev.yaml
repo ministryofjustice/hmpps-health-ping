@@ -10,5 +10,7 @@ generic-service:
 generic-prometheus-alerts:
   alertSeverity: hmpps-sre-alerts-dev
 
-hmpps-health-ping:
-  SERVICE_CATALOGUE_FILTER: "SERVICE_CATALOGUE_FILTER"
+namespace_secrets:
+  hmpps-health-ping:
+    SERVICE_CATALOGUE_FILTER: "SERVICE_CATALOGUE_FILTER"
+
