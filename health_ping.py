@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''Health ping - fetches all /health and /info endpoints and stores the results in Redis'''
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import threading
 import logging
@@ -44,7 +44,7 @@ def update_sc_component(c_id, data):
 
 def update_app_version(app_version, c_name, e_name):
   version_key = f'version:{c_name}:{e_name}'
-  version_data={'v': app_version, 'dateAdded': datetime.now().isoformat()}
+  version_data={'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
   try:
     # Get last entry to version stream
     last_entry_version = redis.xrevrange(version_key, max='+', min='-', count=1)
@@ -70,8 +70,8 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
   stream_key = f'{endpoint_type}:{c_name}:{e_name}'
   stream_data = {}
   stream_data.update({'url': endpoint})
-  stream_data.update({'dateAdded': datetime.now().isoformat()})
-  
+  stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
+
   try:
     # Override default User-Agent other gets blocked by mod security.
     headers = {'User-Agent': 'hmpps-health-ping'}
