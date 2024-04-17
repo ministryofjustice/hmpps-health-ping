@@ -40,8 +40,9 @@ jobs:
     name: Deploy to prod
     uses: ./.github/workflows/deploy.yml
     needs:
+      - build
       - deploy_to_dev # wait for the deploy_to_dev job to complete
     with:
       environment: production
-      version: ${{ github.event.inputs.version }}
+      version: ${{ needs.build.outputs.version }}
     secrets: inherit
