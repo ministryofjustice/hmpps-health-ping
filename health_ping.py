@@ -59,7 +59,7 @@ def update_app_version(app_version, c_name, e_name):
 
     if last_version != app_version:
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-      redis.json().set('latest:versions', f'$.{version_key}', stream_data)
+      redis.json().set('latest:versions', f'$.{version_key}', version_key)
       log.info(f'Updating redis with new version. {version_key} = {version_data}')
   except Exception as e:
     log.error(e)
