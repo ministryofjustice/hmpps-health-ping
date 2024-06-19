@@ -44,7 +44,7 @@ def update_sc_component(c_id, data):
 
 def update_app_version(app_version, c_name, e_name):
   version_key = f'version:{c_name}:{e_name}'
-  version_data={'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
+  version_data = {'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
   try:
     # Get last entry to version stream
     last_entry_version = redis.xrevrange(version_key, max='+', min='-', count=1)
@@ -57,10 +57,15 @@ def update_app_version(app_version, c_name, e_name):
       log.debug(f"First version entry = {version_key}:{version_data}")
       return
 
+    # Only add latest version to redis stream if it has changed since last entry.
     if last_version != app_version:
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-      redis.json().set('latest:versions', f'$.{version_key}', version_key)
-      log.info(f'Updating redis with new version. {version_key} = {version_data}')
+      log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
+
+    # Always update the latest version key
+    redis.json().set('latest:versions', f'$.{version_key}', version_data)
+    log.info(f'Updating redis key with latest version. {version_key} = {version_data}')
+
   except Exception as e:
     log.error(e)
 
