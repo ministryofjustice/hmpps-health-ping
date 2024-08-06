@@ -78,7 +78,6 @@ def update_app_version(app_version, c_name, e_name, github_repo):
         previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
         commits = git_compare_commits(github_repo, previous_deployed_version_sha, app_version_sha)
         version_data.update({'git_compare': json.dumps(commits)})
-      print(json.dumps(version_data, indent=2))
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
       log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
     else:
@@ -163,8 +162,8 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
         # Work on current environment
         if e_name == e["name"]:
           # Existing active_agencies from the SC
-          print(f"SC active_agencies: {e['active_agencies']}")
-          print(f"Existing active_agencies: {active_agencies}")
+          log.info(f"SC active_agencies: {e['active_agencies']}")
+          log.info(f"Existing active_agencies: {active_agencies}")
 
           # if current active_agencies is empty/None set to empty list to enable comparison.
           if e["active_agencies"] is None:
