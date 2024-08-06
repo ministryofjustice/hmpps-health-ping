@@ -70,7 +70,7 @@ def update_app_version(app_version, c_name, e_name, github_repo):
 
     latest_version_from_redis = versions_history[0][1]['v']
     # Only add latest version to redis stream if it has changed since last entry.
-    if latest_version_from_redis == app_version:
+    if latest_version_from_redis != app_version:
       app_version_sha = app_version.split('.')[-1]
       # If we have a previously deployed version - get the git commits since.
       if previous_deployed_version_key:
