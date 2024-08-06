@@ -14,10 +14,14 @@ version:[component name]:[environment name]
 
 # How to run locally
 
-Ensure python is installed: `brew install python`
-Create local env: `python3 -m venv .python`
-Ensure all dependencies are installed: `.python/bin/pip install -r requirements.txt`  
-Copy and create .env file: `cp .env.example .env`
-Start redis by running `docker compose up -d`.
+- Ensure python is installed: `brew install python`
+- Create local env: `python3 -m venv .python`
+- Ensure all dependencies are installed: `.python/bin/pip install -r requirements.txt`  
+- Copy and create .env file: `cp .env.example .env`
+- Either use a local redis by: `docker compose up -d`
+- Or port-forward to redis in the dev environment via kubectl:
+```sh
+kubectl -n hmpps-portfolio-management-dev port-forward port-forward-pod 6379:6379
+```
 
 Run: `export $(cat .env) &&  .python/bin/python health_ping.py`
