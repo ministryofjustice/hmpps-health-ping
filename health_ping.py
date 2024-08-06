@@ -59,48 +59,34 @@ def update_app_version(app_version, c_name, e_name, github_repo):
   version_key = f'version:{c_name}:{e_name}'
   version_data = {'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
   try:
-    # Get last entry to version stream
-    last_entry_version = redis.xrevrange(version_key, max='+', min='-', count=1)
-    if last_entry_version != []:
-      last_version = last_entry_version[0][1]['v']
+    # Find the previous version different to current app version
+    # Due to some duplicate entries we need to search the stream.
+    versions_history = redis.xrevrange(version_key, max='+', min='-', count=10)
+    previous_deployed_version_key = False
+    for i,v in enumerate(versions_history):
+      if v[1]['v'] != app_version:
+        previous_deployed_version_key = i
+        break
+
+    latest_version_from_redis = versions_history[0][1]['v']
+    # Only add latest version to redis stream if it has changed since last entry.
+    if latest_version_from_redis == app_version:
+      app_version_sha = app_version.split('.')[-1]
+      # If we have a previously deployed version - get the git commits since.
+      if previous_deployed_version_key:
+        previous_deployed_version = versions_history[previous_deployed_version_key][1]['v']
+        previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
+        commits = git_compare_commits(github_repo, previous_deployed_version_sha, app_version_sha)
+        version_data.update({'git_compare': json.dumps(commits)})
+      print(json.dumps(version_data, indent=2))
+      redis.xadd(version_key, version_data, maxlen=200, approximate=False)
+      log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
     else:
       # Must be first time entry.
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
       redis.json().set('latest:versions', f'$.{version_key}', version_data)
       log.debug(f"First version entry = {version_key}:{version_data}")
       return
-
-    # Only add latest version to redis stream if it has changed since last entry.
-    if last_version != app_version:
-      redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-      log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
-
-    # Get the commit messages between app versions and store in a redis.
-
-    # Find the previous version different to current app version
-    # Due to some duplicate entries we need to search the stream.
-    last_versions = redis.xrevrange(version_key, max='+', min='-', count=5)
-    previous_version_key = False
-    for i,v in enumerate(last_versions):
-      if v[1]['v'] != app_version:
-        previous_version_key = i
-        break
-
-    if previous_version_key:
-      previous_version = last_versions[previous_version_key][1]['v']
-      print(f"previous_version = {previous_version}")
-      app_version_sha = app_version.split('.')[-1]
-      previous_version_sha = previous_version.split('.')[-1]
-
-      # If first time entry - create root app key
-      if not redis.json().get('git_compare:versions', f'$.{c_name}'):
-        redis.json().set('git_compare:versions', f'$.{c_name}', {})
-
-      # Check if git compare exist in redis already
-      if not redis.json().get('git_compare:versions', f'$.{c_name}.{previous_version_sha}_{app_version_sha}'):
-        commits = git_compare_commits(github_repo, previous_version_sha, app_version_sha)
-        redis.json().set('git_compare:versions', f'$.{c_name}.{previous_version_sha}_{app_version_sha}', commits)
-        log.info(f'Updating redis git compare key: {c_name}.{previous_version_sha}_{app_version_sha}')
 
     # Always update the latest version key
     redis.json().set('latest:versions', f'$.{version_key}', version_data)
@@ -251,8 +237,6 @@ if __name__ == '__main__':
       redis.json().set('latest:info', '$', {})
     if not redis.exists('latest:versions'):
       redis.json().set('latest:versions', '$', {})
-    if not redis.exists('git_compare:versions'):
-      redis.json().set('git_compare:versions', '$', {})
   except Exception as e:
     log.critical("Unable to connect to redis.")
     raise SystemExit(e)
