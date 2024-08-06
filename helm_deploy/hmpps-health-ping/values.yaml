@@ -12,8 +12,8 @@ generic-service:
   ingress:
     enabled: false
 
-  # Due to a bug cant disable/override the sub chart.
-  # https://github.com/helm/helm/pull/12162
+  # Due to a bug cant disable/override the sub chart.
+  # https://github.com/helm/helm/pull/12162
   # Have implemented a basic http health endpoint, until this bug is fixed.
   #livenessProbe: null
   #readinessProbe: null
@@ -53,6 +53,9 @@ generic-service:
     hmpps-health-ping:
       SERVICE_CATALOGUE_API_ENDPOINT: "SERVICE_CATALOGUE_API_ENDPOINT"
       SERVICE_CATALOGUE_API_KEY: "SERVICE_CATALOGUE_API_KEY"
+      GITHUB_APP_ID: "GITHUB_APP_ID"
+      GITHUB_APP_INSTALLATION_ID: "GITHUB_APP_INSTALLATION_ID"
+      GITHUB_APP_PRIVATE_KEY: "GITHUB_APP_PRIVATE_KEY"
     elasticache-redis:
       REDIS_ENDPOINT: "primary_endpoint_address"
       REDIS_TOKEN: "auth_token"
