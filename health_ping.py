@@ -6,10 +6,12 @@ import threading
 import logging
 import requests
 import json
+from base64 import b64decode
 from time import sleep
 import redis
 import http.server
 import socketserver
+import github
 
 sc_api_endpoint = os.getenv("SERVICE_CATALOGUE_API_ENDPOINT")
 sc_api_token = os.getenv("SERVICE_CATALOGUE_API_KEY")
@@ -20,6 +22,9 @@ redis_token = os.getenv("REDIS_TOKEN", "")
 redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "360"))
 refresh_interval = int(os.getenv("REFRESH_INTERVAL","60"))
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+GITHUB_APP_ID = int(os.getenv('GITHUB_APP_ID'))
+GITHUB_APP_INSTALLATION_ID = int(os.getenv('GITHUB_APP_INSTALLATION_ID'))
+GITHUB_APP_PRIVATE_KEY = os.getenv('GITHUB_APP_PRIVATE_KEY')
 
 # limit results for testing/dev
 # See strapi filter syntax https://docs.strapi.io/dev-docs/api/rest/filters-locale-publication
@@ -42,25 +47,45 @@ def update_sc_component(c_id, data):
   except Exception as e:
     log.error(f"Error updating component in the SC: {e}")
 
-def update_app_version(app_version, c_name, e_name):
+def git_compare_commits(github_repo, from_sha, to_sha):
+  repo = gh.get_repo(f'ministryofjustice/{github_repo}')
+  results = repo.compare(from_sha, to_sha)
+  comparison = []
+  for commit in results.commits:
+    comparison.append({'sha': commit.sha, 'html_url': commit.html_url, 'message': commit.commit.message })
+  return comparison
+
+def update_app_version(app_version, c_name, e_name, github_repo):
   version_key = f'version:{c_name}:{e_name}'
   version_data = {'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
   try:
-    # Get last entry to version stream
-    last_entry_version = redis.xrevrange(version_key, max='+', min='-', count=1)
-    if last_entry_version != []:
-      last_version = last_entry_version[0][1]['v']
+    # Find the previous version different to current app version
+    # Due to some duplicate entries we need to search the stream.
+    versions_history = redis.xrevrange(version_key, max='+', min='-', count=10)
+    previous_deployed_version_key = False
+    for i,v in enumerate(versions_history):
+      if v[1]['v'] != app_version:
+        previous_deployed_version_key = i
+        break
+
+    latest_version_from_redis = versions_history[0][1]['v']
+    # Only add latest version to redis stream if it has changed since last entry.
+    if latest_version_from_redis != app_version:
+      app_version_sha = app_version.split('.')[-1]
+      # If we have a previously deployed version - get the git commits since.
+      if previous_deployed_version_key:
+        previous_deployed_version = versions_history[previous_deployed_version_key][1]['v']
+        previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
+        commits = git_compare_commits(github_repo, previous_deployed_version_sha, app_version_sha)
+        version_data.update({'git_compare': json.dumps(commits)})
+      redis.xadd(version_key, version_data, maxlen=200, approximate=False)
+      log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
     else:
       # Must be first time entry.
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
       redis.json().set('latest:versions', f'$.{version_key}', version_data)
       log.debug(f"First version entry = {version_key}:{version_data}")
       return
-
-    # Only add latest version to redis stream if it has changed since last entry.
-    if last_version != app_version:
-      redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-      log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
 
     # Always update the latest version key
     redis.json().set('latest:versions', f'$.{version_key}', version_data)
@@ -111,7 +136,8 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
       try:
         app_version = eval(loc)
         log.debug(f"Found app version: {c_name}:{e_name}:{app_version}")
-        update_app_version(app_version, c_name, e_name)
+        github_repo = component["attributes"]["github_repo"]
+        update_app_version(app_version, c_name, e_name, github_repo)
         break
       except (KeyError, TypeError):
         pass
@@ -136,8 +162,8 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
         # Work on current environment
         if e_name == e["name"]:
           # Existing active_agencies from the SC
-          print(f"SC active_agencies: {e['active_agencies']}")
-          print(f"Existing active_agencies: {active_agencies}")
+          log.info(f"SC active_agencies: {e['active_agencies']}")
+          log.info(f"Existing active_agencies: {active_agencies}")
 
           # if current active_agencies is empty/None set to empty list to enable comparison.
           if e["active_agencies"] is None:
@@ -223,6 +249,23 @@ if __name__ == '__main__':
   except Exception as e:
     log.critical("Unable to connect to the Service Catalogue.")
     raise SystemExit(e) 
+
+  # Test auth and connection to github
+  try:
+    private_key = b64decode(GITHUB_APP_PRIVATE_KEY).decode('ascii')
+    auth = github.Auth.AppAuth(GITHUB_APP_ID, private_key).get_installation_auth(
+      GITHUB_APP_INSTALLATION_ID
+    )
+    gh = github.Github(auth=auth, pool_size=50)
+
+    rate_limit = gh.get_rate_limit()
+    core_rate_limit = rate_limit.core
+    log.info(f'Github API: {rate_limit}')
+    # test fetching organisation name
+    gh.get_organization('ministryofjustice')
+  except Exception as e:
+    log.critical('Unable to connect to the github API.')
+    raise SystemExit(e) from e
 
   sc_endpoint = f"{sc_api_endpoint}/v1/components?populate=environments{sc_api_filter}"
 
