@@ -73,10 +73,11 @@ def update_app_version(app_version, c_name, e_name, github_repo):
     if latest_version_from_redis != app_version:
       app_version_sha = app_version.split('.')[-1]
       # If we have a previously deployed version - get the git commits since.
-      if previous_deployed_version_key:
+      if isinstance(previous_deployed_version_key, int):
         previous_deployed_version = versions_history[previous_deployed_version_key][1]['v']
         previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
         commits = git_compare_commits(github_repo, previous_deployed_version_sha, app_version_sha)
+        log.info(f"Fetching commits for build: {app_version}")
         version_data.update({'git_compare': json.dumps(commits)})
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
       log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
