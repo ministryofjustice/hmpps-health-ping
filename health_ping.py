@@ -81,12 +81,6 @@ def update_app_version(app_version, c_name, e_name, github_repo):
         version_data.update({'git_compare': json.dumps(commits)})
       redis.xadd(version_key, version_data, maxlen=200, approximate=False)
       log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
-    else:
-      # Must be first time entry.
-      redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-      redis.json().set('latest:versions', f'$.{version_key}', version_data)
-      log.debug(f"First version entry = {version_key}:{version_data}")
-      return
 
     # Always update the latest version key
     redis.json().set('latest:versions', f'$.{version_key}', version_data)
