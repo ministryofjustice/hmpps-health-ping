@@ -59,28 +59,39 @@ def update_app_version(app_version, c_name, e_name, github_repo):
   version_key = f'version:{c_name}:{e_name}'
   version_data = {'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
   try:
-    # Find the previous version different to current app version
-    # Due to some duplicate entries we need to search the stream.
-    versions_history = redis.xrevrange(version_key, max='+', min='-', count=10)
-    previous_deployed_version_key = False
-    for i,v in enumerate(versions_history):
-      if v[1]['v'] != app_version:
-        previous_deployed_version_key = i
-        break
+    with redis.lock(f"{c_name}_{e_name}", timeout=5, blocking=True, blocking_timeout=5) as lock:
+      log.debug(f"Got lock: {lock.locked()}, {lock.name}")
 
-    latest_version_from_redis = versions_history[0][1]['v']
-    # Only add latest version to redis stream if it has changed since last entry.
-    if latest_version_from_redis != app_version:
-      app_version_sha = app_version.split('.')[-1]
-      # If we have a previously deployed version - get the git commits since.
-      if isinstance(previous_deployed_version_key, int):
-        previous_deployed_version = versions_history[previous_deployed_version_key][1]['v']
-        previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
-        commits = git_compare_commits(github_repo, previous_deployed_version_sha, app_version_sha)
-        log.info(f"Fetching commits for build: {app_version}")
-        version_data.update({'git_compare': json.dumps(commits)})
-      redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-      log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
+      # Find the previous version different to current app version
+      # Due to some duplicate entries we need to search the stream.
+      versions_history = redis.xrevrange(version_key, max='+', min='-', count=10)
+
+      if versions_history != []:
+        previous_deployed_version_key = False
+        for i,v in enumerate(versions_history):
+          if v[1]['v'] != app_version:
+            previous_deployed_version_key = i
+            break
+
+        latest_version_from_redis = versions_history[0][1]['v']
+        # Only add latest version to redis stream if it has changed since last entry.
+        if latest_version_from_redis != app_version:
+          app_version_sha = app_version.split('.')[-1]
+          # If we have a previously deployed version - get the git commits since.
+          if isinstance(previous_deployed_version_key, int):
+            previous_deployed_version = versions_history[previous_deployed_version_key][1]['v']
+            previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
+            commits = git_compare_commits(github_repo, previous_deployed_version_sha, app_version_sha)
+            log.info(f"Fetching commits for build: {app_version}")
+            version_data.update({'git_compare': json.dumps(commits)})
+          redis.xadd(version_key, version_data, maxlen=200, approximate=False)
+          log.info(f'Updating redis stream with new version. {version_key} = {version_data}')
+
+      else:
+        # Must be first time entry to version redis stream
+        redis.xadd(version_key, version_data, maxlen=200, approximate=False)
+        log.debug(f"First version entry = {version_key}:{version_data}")
+        return
 
     # Always update the latest version key
     redis.json().set('latest:versions', f'$.{version_key}', version_data)
@@ -142,7 +153,7 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
   except Exception as e:
     log.error(e)
 
-  # Current compoment ID needed for strapi api call
+  # Current component ID needed for strapi api call
   c_id = component["id"]
 
   # Try to get active agencies
