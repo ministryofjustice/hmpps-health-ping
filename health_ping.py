@@ -131,6 +131,9 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
     stream_data.update({'error': str(e)})
     log.error(e)
 
+  # Current component ID needed for strapi api call
+  c_id = component["id"]
+
   # Try to get app version.
   try:
     version_locations = (
@@ -144,6 +147,18 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
         log.debug(f"Found app version: {c_name}:{e_name}:{app_version}")
         github_repo = component["attributes"]["github_repo"]
         update_app_version(app_version, c_name, e_name, github_repo)
+        env_data = []
+        for e in component["attributes"]["environments"]:
+          if e_name == e["name"]:
+            log.info(f"Existing build_image_tag: {build_image_tag}")
+            if app_version != e["build_image_tag"]:
+              env_data.append({"id": e["id"], "build_image_tag": app_version })
+              update_sc = True
+            else:
+              env_data.append({"id": e["id"]})
+        if update_sc:
+          data = {"environments": env_data}
+          update_sc_component(c_id, data)
         break
       except (KeyError, TypeError):
         pass
@@ -152,9 +167,6 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
 
   except Exception as e:
     log.error(e)
-
-  # Current component ID needed for strapi api call
-  c_id = component["id"]
 
   # Try to get active agencies
   try:
