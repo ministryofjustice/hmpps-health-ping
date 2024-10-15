@@ -96,21 +96,6 @@ def update_app_version(app_version, c_name, e_name, github_repo):
     # Always update the latest version key
     redis.json().set('latest:versions', f'$.{version_key}', version_data)
     log.info(f'Updating redis key with latest version. {version_key} = {version_data}')
-    if (endpoint_type == 'info'):
-      env_data = []
-      update_sc = False
-      for e in component["attributes"]["environments"]:
-        if e_name == e["name"]:
-          if e["build_image_tag"] is None:
-            e["build_image_tag"] = []
-          if app_version != e["build_image_tag"]:
-            env_data.append({"id": e["id"], "build_image_tag": app_version })
-            update_sc = True
-        else:
-          env_data.append({"id": e["id"]})
-      if update_sc:
-        data = {"environments": env_data}
-        update_sc_component(c_id, data)
 
   except Exception as e:
     log.error(e)
@@ -146,7 +131,6 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
     stream_data.update({'error': str(e)})
     log.error(e)
 
-
   # Try to get app version.
   try:
     version_locations = (
@@ -168,6 +152,9 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
 
   except Exception as e:
     log.error(e)
+
+  # Current component ID needed for strapi api call
+  c_id = component["id"]
 
   # Try to get active agencies
   try:
@@ -304,8 +291,6 @@ if __name__ == '__main__':
       for env in component["attributes"]["environments"]:
         c_name = component["attributes"]["name"]
         e_name = env["name"]
-        # Current component ID needed for strapi api call
-        c_id = component["id"]
         if (env["url"]) and (env["monitor"] == True):
           if env["health_path"]:
             endpoint = f'{env["url"]}{env["health_path"]}'
