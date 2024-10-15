@@ -97,13 +97,16 @@ def update_app_version(app_version, c_name, e_name, github_repo):
     redis.json().set('latest:versions', f'$.{version_key}', version_data)
     log.info(f'Updating redis key with latest version. {version_key} = {version_data}')
     env_data = []
+    update_sc = False
     for e in component["attributes"]["environments"]:
       if e_name == e["name"]:
+        if e["build_image_tag"] is None:
+          e["build_image_tag"] = []
         if app_version != e["build_image_tag"]:
           env_data.append({"id": e["id"], "build_image_tag": app_version })
           update_sc = True
-        else:
-          env_data.append({"id": e["id"]})
+      else:
+        env_data.append({"id": e["id"]})
     if update_sc:
       data = {"environments": env_data}
       update_sc_component(c_id, data)
