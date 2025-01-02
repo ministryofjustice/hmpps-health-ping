@@ -48,11 +48,14 @@ def update_sc_component(c_id, data):
     log.error(f"Error updating component in the SC: {e}")
 
 def git_compare_commits(github_repo, from_sha, to_sha):
-  repo = gh.get_repo(f'ministryofjustice/{github_repo}')
-  results = repo.compare(from_sha, to_sha)
   comparison = []
-  for commit in results.commits:
-    comparison.append({'sha': commit.sha, 'html_url': commit.html_url, 'message': commit.commit.message })
+  try:
+    repo = gh.get_repo(f'ministryofjustice/{github_repo}')
+    results = repo.compare(from_sha, to_sha)
+    for commit in results.commits:
+      comparison.append({'sha': commit.sha, 'html_url': commit.html_url, 'message': commit.commit.message })
+  except Exception as e:
+    log.error(f"Error retreiving commits for repo: {github_repo} between {from_sha} and {to_sha} : {e}")
   return comparison
 
 def update_app_version(app_version, c_name, e_name, github_repo):
