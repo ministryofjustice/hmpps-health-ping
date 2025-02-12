@@ -8,4 +8,4 @@ generic-service:
     LOG_LEVEL: info
 
 generic-prometheus-alerts:
-  alertSeverity: hmpps-sre-alerts
+  alertSeverity: hmpps-sre-alerts-prod

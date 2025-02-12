@@ -12,4 +12,4 @@ generic-service:
       SERVICE_CATALOGUE_FILTER: "SERVICE_CATALOGUE_FILTER"
 
 generic-prometheus-alerts:
-  alertSeverity: hmpps-sre-alerts-dev
+  alertSeverity: hmpps-sre-alerts-nonprod
