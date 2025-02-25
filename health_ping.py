@@ -51,13 +51,7 @@ def get_build_image_tag(output):
   return None
 
 def update_sc_environment(e_id, env_data):
-  data = {"data": {"attributes": env_data}}
-  if "build_image_tag" not in env_data:
-    log.error("build_image_tag is missing in env_data")
-    return
-  else:
-    print(f"Updating SC with {data}")
-
+  data = {"data": env_data}
   try:
     log.debug(f"Data to POST to strapi {data}")
     x = requests.put(f"{sc_api_endpoint}/v1/environments/{e_id}", headers=sc_api_headers, json=data, timeout=10)
