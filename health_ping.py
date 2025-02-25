@@ -35,17 +35,40 @@ sc_api_filter = os.getenv("SERVICE_CATALOGUE_FILTER", '')
 # Example Sort filter
 #SC_SORT='&sort=updatedAt:asc'
 
+def get_build_image_tag(output):
+  version_locations = (
+    "output['build']['version']",  # all apps should have version here
+    "output['components']['healthInfo']['details']['version']",  # Java/Kotlin springboot apps
+    "output['build']['buildNumber']"  # Node/Typescript apps
+  )
+  for loc in version_locations:
+    try:
+      version = eval(loc)
+      if version:
+        return version
+    except KeyError:
+      continue
+  return None
 
-def update_sc_component(c_id, data):
+def update_sc_environment(e_id, env_data):
+  data = {"data": {"attributes": env_data}}
+  if "build_image_tag" not in env_data:
+    log.error("build_image_tag is missing in env_data")
+    return
+  else:
+    print(f"Updating SC with {data}")
+
   try:
     log.debug(f"Data to POST to strapi {data}")
-    x = requests.put(f"{sc_api_endpoint}/v1/components/{c_id}", headers=sc_api_headers, json = {"data": data}, timeout=10)
+    x = requests.put(f"{sc_api_endpoint}/v1/environments/{e_id}", headers=sc_api_headers, json=data, timeout=10)
+    print(f"Response Content: {x.content}")
+    print(f"Response Status Code: {x.status_code}")
     if x.status_code == 200:
-      log.info(f"Successfully updated component id {c_id}: {x.status_code}")
+      log.info(f"Successfully updated environment id {e_id}: {x.status_code}")
     else:
-      log.info(f"Received non-200 response from service catalogue for component id {c_id}: {x.status_code} {x.content}")
+      log.info(f"Received non-200 response from service catalogue for environment id {e_id}: {x.status_code} {x.content}")
   except Exception as e:
-    log.error(f"Error updating component in the SC: {e}")
+    log.error(f"Error updating environment in the SC: {e}")
 
 def git_compare_commits(github_repo, from_sha, to_sha):
   comparison = []
@@ -102,21 +125,24 @@ def update_app_version(app_version, c_name, e_name, github_repo):
   except Exception as e:
     log.error(e)
 
-def process_env(c_name, e_name, endpoint, endpoint_type, component):
+def process_env(c_name, e_id, endpoint, endpoint_type, component, env_attributes):
   output = {}
   # Redis key to use for stream
+  e_name = env_attributes["name"]
   stream_key = f'{endpoint_type}:{c_name}:{e_name}'
   stream_data = {}
   stream_data.update({'url': endpoint})
   stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
 
+  # Get component id 
+  c_id = component["id"]
+  
   try:
     # Override default User-Agent other gets blocked by mod security.
     headers = {'User-Agent': 'hmpps-health-ping'}
     r = requests.get(endpoint, headers=headers, timeout=10)
-
+    output = r.json()
     try:
-      output = r.json()
       stream_data.update({'json': str(json.dumps(output))})
       #log.info(app_version)
     except Exception as e:
@@ -134,81 +160,43 @@ def process_env(c_name, e_name, endpoint, endpoint_type, component):
     log.error(e)
 
   # Try to get app version.
-  try:
-    version_locations = (
-      "output['build']['version']", # all apps should have version here
-      "output['components']['healthInfo']['details']['version']", # Java/Kotlin springboot apps
-      "output['build']['buildNumber']" # Node/Typscript apps
-    )
-    c_id = component["id"]
-    for loc in version_locations:
-      try:
-        app_version = eval(loc)
-        log.debug(f"Found app version: {c_name}:{e_name}:{app_version}")
-        github_repo = component["attributes"]["github_repo"]
-        update_app_version(app_version, c_name, e_name, github_repo)
-        if (endpoint_type == 'info'):
-          env_data = []
-          update_sc = False
-          for e in component["attributes"]["environments"]:
-            if e_name == e["name"]: # and c_id == component["id"]:
-              if e["build_image_tag"] is None:
-                e["build_image_tag"] = []
-              if app_version != e["build_image_tag"]:
-                env_data.append({"id": e["id"], "build_image_tag": app_version })
-                update_sc = True
-            else:
-              env_data.append({"id": e["id"]})
-          log.info(f'Updating build_image_tag for component  {c_id} {c_name} {env_data}')
-          if update_sc:
-            data = {"environments": env_data}
-            update_sc_component(c_id, data)
-        break
-      except (KeyError, TypeError):
-        pass
-      except Exception as e:
-        log.error(f"{endpoint}: {type(e)} {e}")
-
-  except Exception as e:
-    log.error(e)
-
-  # Get component id 
-  c_id = component["id"]
-
+  env_data = {}
+  update_sc = False
+  app_version = None
+  if (endpoint_type == 'info'):
+    app_version = get_build_image_tag(output)
+  if app_version:
+    log.debug(f"Found app version: {c_name}:{e_name}:{app_version}")
+    github_repo = component["attributes"]["github_repo"]
+    update_app_version(app_version, c_name, e_name, github_repo)
+    image_tag = []
+    image_tag=env_attributes["build_image_tag"]
+    if app_version and app_version != image_tag:
+      env_data.update({ "build_image_tag": app_version })
+      update_sc = True
+      log.info(f'Updating build_image_tag for component  {c_id} {c_name} - Environment {e_id} {e_name}{env_data}')
   # Try to get active agencies
   try:
     if ('activeAgencies' in output) and (endpoint_type == 'info'):
       active_agencies = output['activeAgencies']
 
-      # Need to add all other env IDs to the data payload otherwise strapi will delete them.
-      env_data = []
-      update_sc = False
-      for e in component["attributes"]["environments"]:
-        # Work on current environment
-        if e_name == e["name"]:
-          # Existing active_agencies from the SC
-          log.info(f"SC active_agencies: {e['active_agencies']}")
-          log.info(f"Existing active_agencies: {active_agencies}")
+      log.info(f"SC active_agencies: {env_attributes['active_agencies']}")
+      log.info(f"Existing active_agencies: {active_agencies}")
 
-          # if current active_agencies is empty/None set to empty list to enable comparison.
-          if e["active_agencies"] is None:
-            e["active_agencies"] = []
-          # Test if active_agencies has changed, and update SC if so.
-          if sorted(active_agencies) != sorted(e["active_agencies"]):
-            env_data.append({"id": e["id"], "active_agencies": active_agencies })
-            update_sc = True
-        else:
-          # Add rest of envs for strapi update.
-          env_data.append({"id": e["id"]})
-
-      if update_sc:
-        data = {"environments": env_data}
-        update_sc_component(c_id, data)
+      # if current active_agencies is empty/None set to empty list to enable comparison.
+      env_active_agencies = []
+      env_active_agencies = env_attributes["active_agencies"]
+      # Test if active_agencies has changed, and update SC if so.
+      if sorted(active_agencies) != sorted(env_active_agencies):
+        env_data.update({ "active_agencies": active_agencies })
+        update_sc = True
   except (KeyError, TypeError):
     pass
   except Exception as e:
     log.error(e)
 
+  if update_sc:
+    update_sc_environment(e_id, env_data)
   try:
     redis.xadd(stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False)
     redis.json().set(f'latest:{endpoint_type}', f'$.{stream_key}', stream_data)
@@ -292,7 +280,7 @@ if __name__ == '__main__':
     log.critical('Unable to connect to the github API.')
     raise SystemExit(e) from e
 
-  sc_endpoint = f"{sc_api_endpoint}/v1/components?populate=environments{sc_api_filter}"
+  sc_endpoint = f"{sc_api_endpoint}/v1/components?populate=envs{sc_api_filter}"
 
   while True:
     log.info(sc_endpoint)
@@ -307,21 +295,22 @@ if __name__ == '__main__':
       log.error(f"Unable to connect to Service Catalogue API. {e}")
 
     for component in j_data:
-      for env in component["attributes"]["environments"]:
+      for env in component["attributes"]["envs"]["data"]:
         c_name = component["attributes"]["name"]
-        e_name = env["name"]
-        if (env["url"]) and (env["monitor"] == True):
-          if env["health_path"]:
-            endpoint = f'{env["url"]}{env["health_path"]}'
+        env_attributes = env["attributes"]
+        e_id = env["id"]
+        if (env_attributes["url"]) and (env_attributes["monitor"] == True):
+          if env_attributes["health_path"]:
+            endpoint = f'{env_attributes["url"]}{env_attributes["health_path"]}'
             endpoint_type = "health"
-            t_health = threading.Thread(target=process_env, args=(c_name, e_name, endpoint, endpoint_type, component), daemon=True)
+            t_health = threading.Thread(target=process_env, args=(c_name, e_id, endpoint, endpoint_type, component, env_attributes), daemon=True)
             threads.append(t_health)
             t_health.start()
             log.info(f"Started thread for {c_name}:{endpoint_type}")
-          if env["info_path"]:
-            endpoint = f'{env["url"]}{env["info_path"]}'
+          if env_attributes["info_path"]:
+            endpoint = f'{env_attributes["url"]}{env_attributes["info_path"]}'
             endpoint_type = "info"
-            t_info = threading.Thread(target=process_env, args=(c_name, e_name, endpoint, endpoint_type, component), daemon=True)
+            t_info   = threading.Thread(target=process_env, args=(c_name, e_id, endpoint, endpoint_type, component, env_attributes), daemon=True)
             threads.append(t_info)
             t_info.start()
             log.info(f"Started thread for {c_name}:{endpoint_type}")
