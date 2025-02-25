@@ -55,8 +55,6 @@ def update_sc_environment(e_id, env_data):
   try:
     log.debug(f"Data to POST to strapi {data}")
     x = requests.put(f"{sc_api_endpoint}/v1/environments/{e_id}", headers=sc_api_headers, json=data, timeout=10)
-    print(f"Response Content: {x.content}")
-    print(f"Response Status Code: {x.status_code}")
     if x.status_code == 200:
       log.info(f"Successfully updated environment id {e_id}: {x.status_code}")
     else:
