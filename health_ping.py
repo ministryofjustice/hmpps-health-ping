@@ -177,7 +177,8 @@ def process_env(c_name, e_id, endpoint, endpoint_type, component, env_attributes
 
       # if current active_agencies is empty/None set to empty list to enable comparison.
       env_active_agencies = []
-      env_active_agencies = env_attributes["active_agencies"]
+      if env_attributes["active_agencies"] is not None:
+        env_active_agencies = env_attributes["active_agencies"]
       # Test if active_agencies has changed, and update SC if so.
       if sorted(active_agencies) != sorted(env_active_agencies):
         env_data.update({ "active_agencies": active_agencies })
