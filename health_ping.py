@@ -121,7 +121,8 @@ def process_env(c_name, e_id, endpoint, endpoint_type, component, env_attributes
   output = {}
   # Redis key to use for stream
   e_name = env_attributes["name"]
-  stream_key = f'{endpoint_type}:{c_name}:{e_name}'
+  e_type = env_attributes["type"]
+  stream_key = f'{endpoint_type}:{c_name}:{e_type}'
   stream_data = {}
   stream_data.update({'url': endpoint})
   stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
