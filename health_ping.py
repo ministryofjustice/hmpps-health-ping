@@ -4,7 +4,6 @@
 from datetime import datetime, timezone
 import os
 import threading
-from concurrent.futures import ThreadPoolExecutor
 import logging
 import requests
 import json
