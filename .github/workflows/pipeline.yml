@@ -32,7 +32,7 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     needs: build
     with:
-      environment: development
+      environment: dev
       version: ${{ needs.build.outputs.version }}
     secrets: inherit
 
