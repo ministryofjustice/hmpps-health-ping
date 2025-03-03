@@ -14,9 +14,6 @@ import redis
 import http.server
 import socketserver
 import github
-import psutil
-
-process = psutil.Process(os.getpid())
 
 max_threads = os.getenv('MAX_THREADS', 200)
 sc_api_endpoint = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
