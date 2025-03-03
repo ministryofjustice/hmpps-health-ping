@@ -2,6 +2,7 @@
 """Health ping - fetches all /health and /info endpoints and stores the results in Redis"""
 
 from datetime import datetime, timezone
+import psutil
 import os
 import threading
 import logging
@@ -31,6 +32,7 @@ log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 GITHUB_APP_ID = int(os.getenv('GITHUB_APP_ID'))
 GITHUB_APP_INSTALLATION_ID = int(os.getenv('GITHUB_APP_INSTALLATION_ID'))
 GITHUB_APP_PRIVATE_KEY = os.getenv('GITHUB_APP_PRIVATE_KEY')
+
 
 # limit results for testing/dev
 # See strapi filter syntax https://docs.strapi.io/dev-docs/api/rest/filters-locale-publication
@@ -267,7 +269,7 @@ if __name__ == '__main__':
     format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=log_level
   )
   log = logging.getLogger(__name__)
-
+  process = psutil.Process(os.getpid())
   main_threads = list()
   http_thread = list()
   # Start health endpoint.

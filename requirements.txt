@@ -1,3 +1,4 @@
 redis==4.6.0
 requests==2.31.0
 PyGithub==1.59.1
+psutil>=7.0.0
