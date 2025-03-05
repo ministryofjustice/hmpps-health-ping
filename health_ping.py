@@ -200,7 +200,6 @@ def process_env(c_name, e_id, endpoint, endpoint_type, component, env_attributes
   app_version = None
   if endpoint_type == 'info':
     app_version = get_build_image_tag(output)
-    print(app_version)
   if app_version:
     log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
     github_repo = component['attributes']['github_repo']
