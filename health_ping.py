@@ -100,13 +100,13 @@ def git_compare_commits(github_repo, from_sha, to_sha):
   return comparison
 
 
-def update_app_version(app_version, c_name, e_name, github_repo):
-  log.debug(f'Starting update_app_version for {c_name}-{e_name}')
-  version_key = f'version:{c_name}:{e_name}'
+def update_app_version(app_version, c_name, e_type, github_repo):
+  log.debug(f'Starting update_app_version for {c_name}-{e_type}')
+  version_key = f'version:{c_name}:{e_type}'
   version_data = {'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
   try:
     with redis.lock(
-      f'{c_name}_{e_name}', timeout=5, blocking=True, blocking_timeout=5
+      f'{c_name}_{e_type}', timeout=5, blocking=True, blocking_timeout=5
     ) as lock:
       log.debug(f'Got lock: {lock.locked()}, {lock.name}')
 
@@ -152,7 +152,7 @@ def update_app_version(app_version, c_name, e_name, github_repo):
 
   except Exception as e:
     log.error(e)
-  log.debug(f'Completed update_app_version for {c_name}-{e_name}')
+  log.debug(f'Completed update_app_version for {c_name}-{e_type}')
 
 
 def process_env(c_name, e_id, endpoint, endpoint_type, component, env_attributes):
@@ -200,10 +200,11 @@ def process_env(c_name, e_id, endpoint, endpoint_type, component, env_attributes
   app_version = None
   if endpoint_type == 'info':
     app_version = get_build_image_tag(output)
+    print(app_version)
   if app_version:
     log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
     github_repo = component['attributes']['github_repo']
-    update_app_version(app_version, c_name, e_name, github_repo)
+    update_app_version(app_version, c_name, e_type, github_repo)
     image_tag = []
     image_tag = env_attributes['build_image_tag']
     if app_version and app_version != image_tag:
