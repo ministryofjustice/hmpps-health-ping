@@ -388,4 +388,6 @@ if __name__ == '__main__':
     log.info(
       f'Completed all threads. Sleeping for {refresh_interval} seconds. Current memory usage: {process.memory_info().rss / 1024**2} MB.'
     )
+    # Added clearing the main_threads list to release memory
+    main_threads.clear()
     sleep(refresh_interval)
