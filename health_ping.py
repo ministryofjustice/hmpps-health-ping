@@ -15,7 +15,7 @@ import http.server
 import socketserver
 import github
 
-max_threads = os.getenv('MAX_THREADS', 200)
+max_threads = os.getenv('MAX_THREADS', 50)
 sc_api_endpoint = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
 sc_api_token = os.getenv('SERVICE_CATALOGUE_API_KEY')
 redis_host = os.getenv('REDIS_ENDPOINT')
