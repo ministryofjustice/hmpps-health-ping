@@ -198,9 +198,8 @@ def process_env(c_name, e_id, endpoint, endpoint_type, component, env_attributes
   env_data = {}
   update_sc = False
   app_version = None
-  if endpoint_type == 'info':
-    app_version = get_build_image_tag(output)
-  if app_version:
+  # HEAT-567 - get app version from build image tag on health or info
+  if app_version := get_build_image_tag(output):
     log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
     github_repo = component['attributes']['github_repo']
     update_app_version(app_version, c_name, e_type, github_repo)
