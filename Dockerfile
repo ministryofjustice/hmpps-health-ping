@@ -18,6 +18,7 @@ RUN addgroup --gid 2000 --system appgroup && \
 # copy the dependencies from builder stage
 COPY --chown=appuser:appgroup --from=builder /home/appuser/.local /home/appuser/.local
 COPY ./health_ping.py .
+COPY ./classes ./classes
 
 # update PATH environment variable
 ENV PATH=/home/appuser/.local:$PATH
