@@ -153,12 +153,12 @@ def update_app_version(app_version, c_name, e_type, github_repo):
     log.info(f'Updated redis key with latest version. {version_key} = {version_data}')
 
   except Exception as e:
-    log.error(e)
+    log.error(f'Failed to update redis: {e}')
   log.debug(f'Completed update_app_version for {c_name}-{e_type}')
 
 
 def process_env(c_name, component, env_id, env_attributes, endpoints_list):
-  log.debug(f'Starting process_env for {env_attributes.get("name")}')
+  log.info(f'Processing {env_attributes.get("name")}')
   log.debug(f'Memory usage: {process.memory_info().rss / 1024**2} MB')
 
   # variables to store just once for all attributes
@@ -202,7 +202,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
         stream_data.update({'http_s': 0})
         # Log error in stream for easier diagnosis of problems
         stream_data.update({'error': str(e)})
-        log.error(e)
+        log.error(f'Failed to get data from {endpoint} : {e}')
 
       # Try to get app version.
       env_data = {}
@@ -246,7 +246,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       except (KeyError, TypeError):
         pass
       except Exception as e:
-        log.error(e)
+        log.error(f'failed to process active_agencies: {e}')
 
       if update_sc:
         update_sc_environment(env_id, env_data)
@@ -263,7 +263,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
         f'Completed process_env for {env_attributes.get("name")}:{endpoint_type}'
       )
     else:
-      log.warning(f'No {endpoint_tuple[0]} endpoint for {env_attributes.get("name")}')
+      log.warning(f'No {endpoint_tuple[1]} endpoint for {env_attributes.get("name")}')
   # Now update the redis DB once for any of the attributes if there's a change
   if app_version and update_redis:
     github_repo = component['attributes']['github_repo']
@@ -394,7 +394,7 @@ if __name__ == '__main__':
             sleep(3)
           thread.start()
           log.info(
-            f'Started thread for {c_name}-{env_attributes.get("name")} (active threads: {threading.active_count()})'
+            f'Started thread for {env_attributes.get("name")} (active threads: {threading.active_count()})'
           )
         else:
           continue
