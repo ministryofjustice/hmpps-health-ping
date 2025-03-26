@@ -14,8 +14,6 @@ import redis
 import http.server
 import socketserver
 import github
-from classes.slack import Slack
-
 
 max_threads = os.getenv('MAX_THREADS', 200)
 sc_api_endpoint = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
@@ -34,8 +32,6 @@ log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 GITHUB_APP_ID = int(os.getenv('GITHUB_APP_ID'))
 GITHUB_APP_INSTALLATION_ID = int(os.getenv('GITHUB_APP_INSTALLATION_ID'))
 GITHUB_APP_PRIVATE_KEY = os.getenv('GITHUB_APP_PRIVATE_KEY')
-slack_bot_token = os.getenv('SLACK_BOT_TOKEN')
-alert_slack_channel = os.getenv('ALERT_SLACK_CHANNEL')
 
 # limit results for testing/dev
 # See strapi filter syntax https://docs.strapi.io/dev-docs/api/rest/filters-locale-publication
@@ -276,7 +272,6 @@ if __name__ == '__main__':
   main_threads = list()
   http_thread = list()
 
-  slack = Slack({'token': slack_bot_token, 'alert_slack_channel': alert_slack_channel})
   # Start health endpoint.
   httpHealth = threading.Thread(target=startHttpServer, daemon=True)
   http_thread.append(httpHealth)
@@ -305,6 +300,7 @@ if __name__ == '__main__':
       redis.json().set('latest:versions', '$', {})
   except Exception as e:
     log.critical('Unable to connect to redis.')
+    slack.alert('hmpps-health-ping: Unable to connect to redis.')
     raise SystemExit(e)
 
   sc_api_headers = {
