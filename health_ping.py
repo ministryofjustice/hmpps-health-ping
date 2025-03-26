@@ -33,7 +33,6 @@ GITHUB_APP_ID = int(os.getenv('GITHUB_APP_ID'))
 GITHUB_APP_INSTALLATION_ID = int(os.getenv('GITHUB_APP_INSTALLATION_ID'))
 GITHUB_APP_PRIVATE_KEY = os.getenv('GITHUB_APP_PRIVATE_KEY')
 
-
 # limit results for testing/dev
 # See strapi filter syntax https://docs.strapi.io/dev-docs/api/rest/filters-locale-publication
 # Example filter string = '&filters[name][$contains]=example'
@@ -42,6 +41,9 @@ sc_api_filter = os.getenv('SERVICE_CATALOGUE_FILTER', '')
 
 # Example Sort filter
 # SC_SORT='&sort=updatedAt:asc'
+
+# A list of tuples of environment field names mapped to redis field names
+endpoints_list = [('health_path', 'health'), ('info_path', 'info')]
 
 
 def get_build_image_tag(output):
@@ -155,19 +157,20 @@ def update_app_version(app_version, c_name, e_type, github_repo):
   log.debug(f'Completed update_app_version for {c_name}-{e_type}')
 
 
-def process_env(c_name, e_id, component, attributes):
+def process_env(c_name, component, env_attributes, endpoints_list):
   log.debug(f'Starting process_env for {c_name}-{env_attributes.get("name")}')
   log.debug(f'Memory usage: {process.memory_info().rss / 1024**2} MB')
 
+  e_id = env_attributes['id']
   # variables to store just once for all attributes
   app_version = None
   update_redis = False
 
-  for each_attribute in attributes:
+  for endpoint_tuple in endpoints_list:
     output = {}
-    if endpoint_uri := env_attributes.get(each_attribute[0]):
+    if endpoint_uri := env_attributes.get(endpoint_tuple[0]):
       endpoint = f'{env_attributes["url"]}{endpoint_uri}'
-      endpoint_type = each_attribute[1]
+      endpoint_type = endpoint_tuple[1]
 
     # Redis key to use for stream
     e_name = env_attributes['name']
@@ -211,6 +214,7 @@ def process_env(c_name, e_id, component, attributes):
       log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
       image_tag = []
       image_tag = env_attributes['build_image_tag']
+      log.debug((f'existing build_image_tag: {image_tag}'))
       if app_version and app_version != image_tag:
         env_data.update({'build_image_tag': app_version})
         update_sc = True
@@ -218,6 +222,10 @@ def process_env(c_name, e_id, component, attributes):
           f'Updating build_image_tag for component  {c_id} {c_name} - Environment {e_id} {e_name}{env_data}'
         )
         update_redis = True
+      else:
+        log.debug(
+          f'No change in build_image_tag for component  {c_id} {c_name} - Environment {e_id} {e_name}'
+        )
       # leave the redis processing of the app version to the end of the loop
 
     # Try to get active agencies
@@ -368,14 +376,12 @@ if __name__ == '__main__':
       for env in component['attributes']['envs']['data']:
         c_name = component['attributes']['name']
         env_attributes = env['attributes']
-        e_id = env['id']
         if env_attributes.get('url') and env_attributes.get('monitor'):
-          attributes = [('health_path', 'health'), ('info_path', 'info')]
-          # moving the each_attribute loop inside the process_env
+          # moving the endpoint_tuple loop inside the process_env
           # to avoid duplication of build_image_tag if it's present in both health and info
           thread = threading.Thread(
             target=process_env,
-            args=(c_name, e_id, component, attributes),
+            args=(c_name, component, env_attributes, endpoints_list),
             daemon=True,
           )
           main_threads.append(thread)
