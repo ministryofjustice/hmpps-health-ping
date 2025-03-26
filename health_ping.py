@@ -158,7 +158,7 @@ def update_app_version(app_version, c_name, e_type, github_repo):
 
 
 def process_env(c_name, component, env_id, env_attributes, endpoints_list):
-  log.debug(f'Starting process_env for {c_name}-{env_attributes.get("name")}')
+  log.debug(f'Starting process_env for {env_attributes.get("name")}')
   log.debug(f'Memory usage: {process.memory_info().rss / 1024**2} MB')
 
   # variables to store just once for all attributes
@@ -171,98 +171,99 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       endpoint = f'{env_attributes["url"]}{endpoint_uri}'
       endpoint_type = endpoint_tuple[1]
 
-    # Redis key to use for stream
-    e_name = env_attributes['name']
-    e_type = env_attributes['type']
-    stream_key = f'{endpoint_type}:{c_name}:{e_type}'
-    stream_data = {}
-    stream_data.update({'url': endpoint})
-    stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
+      # Redis key to use for stream
+      e_name = env_attributes['name']
+      e_type = env_attributes['type']
+      stream_key = f'{endpoint_type}:{c_name}:{e_type}'
+      stream_data = {}
+      stream_data.update({'url': endpoint})
+      stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
 
-    # Get component id
-    c_id = component['id']
+      # Get component id
+      c_id = component['id']
 
-    try:
-      # Override default User-Agent other gets blocked by mod security.
-      headers = {'User-Agent': 'hmpps-health-ping'}
-      r = requests.get(endpoint, headers=headers, timeout=10)
-      output = r.json()
       try:
-        stream_data.update({'json': str(json.dumps(output))})
-        # log.info(app_version)
-      except Exception as e:
-        log.error(f'{endpoint}: Unable to read json')
+        # Override default User-Agent other gets blocked by mod security.
+        headers = {'User-Agent': 'hmpps-health-ping'}
+        r = requests.get(endpoint, headers=headers, timeout=10)
+        output = r.json()
+        try:
+          stream_data.update({'json': str(json.dumps(output))})
+          # log.info(app_version)
+        except Exception as e:
+          log.error(f'{endpoint}: Unable to read json')
+          log.error(e)
+
+        stream_data.update({'http_s': r.status_code})
+        log.info(f'{c_name}-{e_type} response: {r.status_code}: {endpoint}')
+
+      except requests.exceptions.RequestException as e:
+        # Set status code to 0 for failed connections
+        stream_data.update({'http_s': 0})
+        # Log error in stream for easier diagnosis of problems
+        stream_data.update({'error': str(e)})
         log.error(e)
 
-      stream_data.update({'http_s': r.status_code})
-      log.info(f'{c_name}-{e_type} response: {r.status_code}: {endpoint}')
+      # Try to get app version.
+      env_data = {}
+      update_sc = False
 
-    except requests.exceptions.RequestException as e:
-      # Set status code to 0 for failed connections
-      stream_data.update({'http_s': 0})
-      # Log error in stream for easier diagnosis of problems
-      stream_data.update({'error': str(e)})
-      log.error(e)
-
-    # Try to get app version.
-    env_data = {}
-    update_sc = False
-
-    # HEAT-567 - get app version from build image tag on health or info
-    if app_version := get_build_image_tag(output):
-      log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
-      image_tag = []
-      image_tag = env_attributes['build_image_tag']
-      log.debug((f'existing build_image_tag: {image_tag}'))
-      if app_version and app_version != image_tag:
-        env_data.update({'build_image_tag': app_version})
-        update_sc = True
-        log.info(
-          f'Updating build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
-        )
-        update_redis = True
-      else:
-        log.debug(
-          f'No change in build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}'
-        )
-      # leave the redis processing of the app version to the end of the loop
-
-    # Try to get active agencies
-    try:
-      if ('activeAgencies' in output) and (endpoint_type == 'info'):
-        active_agencies = output['activeAgencies']
-
-        log.info(f'SC active_agencies: {env_attributes["active_agencies"]}')
-        log.info(f'Existing active_agencies: {active_agencies}')
-
-        # if current active_agencies is empty/None set to empty list to enable comparison.
-        env_active_agencies = []
-        if env_attributes['active_agencies'] is not None:
-          env_active_agencies = env_attributes['active_agencies']
-        # Test if active_agencies has changed, and update SC if so.
-        if sorted(active_agencies) != sorted(env_active_agencies):
-          env_data.update({'active_agencies': active_agencies})
+      # HEAT-567 - get app version from build image tag on health or info
+      if app_version := get_build_image_tag(output):
+        log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
+        image_tag = []
+        image_tag = env_attributes['build_image_tag']
+        log.debug((f'existing build_image_tag: {image_tag}'))
+        if app_version and app_version != image_tag:
+          env_data.update({'build_image_tag': app_version})
           update_sc = True
-    except (KeyError, TypeError):
-      pass
-    except Exception as e:
-      log.error(e)
+          log.info(
+            f'Updating build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
+          )
+          update_redis = True
+        else:
+          log.debug(
+            f'No change in build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}'
+          )
+        # leave the redis processing of the app version to the end of the loop
 
-    if update_sc:
-      update_sc_environment(env_id, env_data)
-    try:
-      redis.xadd(
-        stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False
+      # Try to get active agencies
+      try:
+        if ('activeAgencies' in output) and (endpoint_type == 'info'):
+          active_agencies = output['activeAgencies']
+
+          log.info(f'SC active_agencies: {env_attributes["active_agencies"]}')
+          log.info(f'Existing active_agencies: {active_agencies}')
+
+          # if current active_agencies is empty/None set to empty list to enable comparison.
+          env_active_agencies = []
+          if env_attributes['active_agencies'] is not None:
+            env_active_agencies = env_attributes['active_agencies']
+          # Test if active_agencies has changed, and update SC if so.
+          if sorted(active_agencies) != sorted(env_active_agencies):
+            env_data.update({'active_agencies': active_agencies})
+            update_sc = True
+      except (KeyError, TypeError):
+        pass
+      except Exception as e:
+        log.error(e)
+
+      if update_sc:
+        update_sc_environment(env_id, env_data)
+      try:
+        redis.xadd(
+          stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False
+        )
+        redis.json().set(f'latest:{endpoint_type}', f'$.{stream_key}', stream_data)
+        log.debug(f'{stream_key}: {stream_data}')
+      except Exception as e:
+        log.error(f'Unable to add data to redis stream. {e}')
+
+      log.debug(
+        f'Completed process_env for {env_attributes.get("name")}:{endpoint_type}'
       )
-      redis.json().set(f'latest:{endpoint_type}', f'$.{stream_key}', stream_data)
-      log.debug(f'{stream_key}: {stream_data}')
-    except Exception as e:
-      log.error(f'Unable to add data to redis stream. {e}')
-
-    log.debug(
-      f'Completed process_env for {c_name}-{env_attributes.get("name")}:{endpoint_type}'
-    )
-
+    else:
+      log.warning(f'No {endpoint_tuple[0]} endpoint for {env_attributes.get("name")}')
   # Now update the redis DB once for any of the attributes if there's a change
   if app_version and update_redis:
     github_repo = component['attributes']['github_repo']
