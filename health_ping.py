@@ -62,21 +62,21 @@ def get_build_image_tag(output):
   return None
 
 
-def update_sc_environment(e_id, env_data):
+def update_sc_environment(env_id, env_data):
   data = {'data': env_data}
   try:
     log.debug(f'Data to POST to strapi {data}')
     x = requests.put(
-      f'{sc_api_endpoint}/v1/environments/{e_id}',
+      f'{sc_api_endpoint}/v1/environments/{env_id}',
       headers=sc_api_headers,
       json=data,
       timeout=10,
     )
     if x.status_code == 200:
-      log.info(f'Successfully updated environment id {e_id}: {x.status_code}')
+      log.info(f'Successfully updated environment id {env_id}: {x.status_code}')
     else:
       log.info(
-        f'Received non-200 response from service catalogue for environment id {e_id}: {x.status_code} {x.content}'
+        f'Received non-200 response from service catalogue for environment id {env_id}: {x.status_code} {x.content}'
       )
   except Exception as e:
     log.error(f'Error updating environment in the SC: {e}')
@@ -157,11 +157,10 @@ def update_app_version(app_version, c_name, e_type, github_repo):
   log.debug(f'Completed update_app_version for {c_name}-{e_type}')
 
 
-def process_env(c_name, component, env_attributes, endpoints_list):
+def process_env(c_name, component, env_id, env_attributes, endpoints_list):
   log.debug(f'Starting process_env for {c_name}-{env_attributes.get("name")}')
   log.debug(f'Memory usage: {process.memory_info().rss / 1024**2} MB')
 
-  e_id = env_attributes['id']
   # variables to store just once for all attributes
   app_version = None
   update_redis = False
@@ -219,12 +218,12 @@ def process_env(c_name, component, env_attributes, endpoints_list):
         env_data.update({'build_image_tag': app_version})
         update_sc = True
         log.info(
-          f'Updating build_image_tag for component  {c_id} {c_name} - Environment {e_id} {e_name}{env_data}'
+          f'Updating build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
         )
         update_redis = True
       else:
         log.debug(
-          f'No change in build_image_tag for component  {c_id} {c_name} - Environment {e_id} {e_name}'
+          f'No change in build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}'
         )
       # leave the redis processing of the app version to the end of the loop
 
@@ -250,7 +249,7 @@ def process_env(c_name, component, env_attributes, endpoints_list):
       log.error(e)
 
     if update_sc:
-      update_sc_environment(e_id, env_data)
+      update_sc_environment(env_id, env_data)
     try:
       redis.xadd(
         stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False
@@ -376,12 +375,13 @@ if __name__ == '__main__':
       for env in component['attributes']['envs']['data']:
         c_name = component['attributes']['name']
         env_attributes = env['attributes']
+        env_id = env['id']
         if env_attributes.get('url') and env_attributes.get('monitor'):
           # moving the endpoint_tuple loop inside the process_env
           # to avoid duplication of build_image_tag if it's present in both health and info
           thread = threading.Thread(
             target=process_env,
-            args=(c_name, component, env_attributes, endpoints_list),
+            args=(c_name, component, env_id, env_attributes, endpoints_list),
             daemon=True,
           )
           main_threads.append(thread)
