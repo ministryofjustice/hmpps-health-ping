@@ -305,7 +305,6 @@ if __name__ == '__main__':
   http_thread.append(httpHealth)
   httpHealth.start()
 
-  raise SystemExit('Health ping started')
   # Test connection to redis
   try:
     redis_connect_args = dict(
