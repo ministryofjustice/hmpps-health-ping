@@ -18,16 +18,16 @@ generic-service:
       path: /ping
     initialDelaySeconds: 10
     periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 5
+    timeoutSeconds: 2
+    failureThreshold: 1
 
   readinessProbe:
     httpGet:
       path: /ping
     initialDelaySeconds: 10
     periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 5
+    timeoutSeconds: 2
+    failureThreshold: 1
 
   # Environment variables to load into the deployment
   env:

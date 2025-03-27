@@ -321,7 +321,7 @@ if __name__ == '__main__':
     log.info('Successfully connected to redis.')
     # Create root objects for latest if they don't exist
     if not redis.exists('latest:health'):
-      redis.json().set(f'latest:health', '$', {})
+      redis.json().set('latest:health', '$', {})
     if not redis.exists('latest:info'):
       redis.json().set('latest:info', '$', {})
     if not redis.exists('latest:versions'):
