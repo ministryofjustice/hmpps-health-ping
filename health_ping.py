@@ -288,7 +288,7 @@ class HealthHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 def startHttpServer():
   handler_object = HealthHttpRequestHandler
-  with socketserver.TCPServer(('', 8080), handler_object) as httpd:
+  with socketserver.TCPServer(('', 80), handler_object) as httpd:
     httpd.serve_forever()
 
 

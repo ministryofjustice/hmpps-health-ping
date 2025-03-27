@@ -12,12 +12,10 @@ generic-service:
   ingress:
     enabled: true
     tlsSecretName: hmpps-health-ping-cert
-    port: 8080
 
   livenessProbe:
     httpGet:
       path: /ping
-      port: 8080
     initialDelaySeconds: 10
     periodSeconds: 10
     timeoutSeconds: 5
@@ -26,7 +24,6 @@ generic-service:
   readinessProbe:
     httpGet:
       path: /ping
-      port: 8080
     initialDelaySeconds: 10
     periodSeconds: 10
     timeoutSeconds: 5
