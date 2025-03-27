@@ -10,7 +10,7 @@ generic-service:
     port: 3000
 
   ingress:
-    enabled: false
+    enabled: true
 
   # Due to a bug cant disable/override the sub chart.
   # https://github.com/helm/helm/pull/12162
