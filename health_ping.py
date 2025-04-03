@@ -56,6 +56,7 @@ def get_build_image_tag(output):
   for loc in version_locations:
     try:
       version = eval(loc)
+      log.debug(f'version found in {loc}: {version}')
     except KeyError:  # no match to the key
       continue
     except AttributeError:  # there's NoneType going on
@@ -215,45 +216,44 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       update_sc = False
 
       # HEAT-567 - get app version from build image tag on health or info
-      if output:
-        if app_version := get_build_image_tag(output):
-          log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
-          image_tag = []
-          image_tag = env_attributes['build_image_tag']
-          log.debug((f'existing build_image_tag: {image_tag}'))
-          if app_version and app_version != image_tag:
-            env_data.update({'build_image_tag': app_version})
-            update_sc = True
-            log.info(
-              f'Updating build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
-            )
-            update_redis = True
-          else:
-            log.debug(
-              f'No change in build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}'
-            )
-          # leave the redis processing of the app version to the end of the loop
+      if app_version := get_build_image_tag(output):
+        log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
+        image_tag = []
+        image_tag = env_attributes['build_image_tag']
+        log.debug((f'existing build_image_tag: {image_tag}'))
+        if app_version and app_version != image_tag:
+          env_data.update({'build_image_tag': app_version})
+          update_sc = True
+          log.info(
+            f'Updating build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
+          )
+          update_redis = True
+        else:
+          log.debug(
+            f'No change in build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}'
+          )
+        # leave the redis processing of the app version to the end of the loop
 
-          # Try to get active agencies
-          try:
-            if ('activeAgencies' in output) and (endpoint_type == 'info'):
-              active_agencies = output['activeAgencies']
+        # Try to get active agencies
+        try:
+          if ('activeAgencies' in output) and (endpoint_type == 'info'):
+            active_agencies = output['activeAgencies']
 
-              log.info(f'SC active_agencies: {env_attributes["active_agencies"]}')
-              log.info(f'Existing active_agencies: {active_agencies}')
+            log.info(f'SC active_agencies: {env_attributes["active_agencies"]}')
+            log.info(f'Existing active_agencies: {active_agencies}')
 
-              # if current active_agencies is empty/None set to empty list to enable comparison.
-              env_active_agencies = []
-              if env_attributes['active_agencies'] is not None:
-                env_active_agencies = env_attributes['active_agencies']
-              # Test if active_agencies has changed, and update SC if so.
-              if sorted(active_agencies) != sorted(env_active_agencies):
-                env_data.update({'active_agencies': active_agencies})
-                update_sc = True
-          except (KeyError, TypeError):
-            pass
-          except Exception as e:
-            log.error(f'failed to process active_agencies: {e}')
+            # if current active_agencies is empty/None set to empty list to enable comparison.
+            env_active_agencies = []
+            if env_attributes['active_agencies'] is not None:
+              env_active_agencies = env_attributes['active_agencies']
+            # Test if active_agencies has changed, and update SC if so.
+            if sorted(active_agencies) != sorted(env_active_agencies):
+              env_data.update({'active_agencies': active_agencies})
+              update_sc = True
+        except (KeyError, TypeError):
+          pass
+        except Exception as e:
+          log.error(f'failed to process active_agencies: {e}')
 
         if update_sc:
           update_sc_environment(env_id, env_data)
