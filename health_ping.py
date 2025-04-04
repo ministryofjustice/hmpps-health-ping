@@ -106,6 +106,60 @@ def git_compare_commits(github_repo, from_sha, to_sha):
   return comparison
 
 
+def get_http_endpoint(endpoint):
+  stream_data = {}
+  output = {}
+  try:
+    log.debug(f'making call to: {endpoint}')
+    # Override default User-Agent other gets blocked by mod security.
+    headers = {'User-Agent': 'hmpps-health-ping'}
+    r = requests.get(endpoint, headers=headers, timeout=10)
+    output = r.json()
+    log.debug(f'Response received: {output}')
+    try:
+      stream_data.update({'json': str(json.dumps(output))})
+      # log.info(app_version)
+    except Exception as e:
+      log.error(f'{endpoint}: Unable to update stream_data with json')
+      log.error(e)
+
+    stream_data.update({'http_s': r.status_code})
+    log.info(f'http response: {r.status_code}: {endpoint}')
+
+  except requests.exceptions.RequestException as e:
+    # Set status code to 0 for failed connections
+    stream_data.update({'http_s': 0})
+    # Log error in stream for easier diagnosis of problems
+    stream_data.update({'error': str(e)})
+    log.error(f'Failed to get data from {endpoint} - exception: {e}')
+  except Exception as e:
+    log.error(f'Failed to parse response from {endpoint} - exception: {e}')
+  return output, stream_data
+
+
+def get_active_agencies(output, endpoint_type):
+  active_agencies_dict = {}
+  try:
+    if ('activeAgencies' in output) and (endpoint_type == 'info'):
+      active_agencies = output['activeAgencies']
+
+      log.info(f'SC active_agencies: {env_attributes["active_agencies"]}')
+      log.info(f'Existing active_agencies: {active_agencies}')
+
+      # if current active_agencies is empty/None set to empty list to enable comparison.
+      env_active_agencies = []
+      if env_attributes['active_agencies'] is not None:
+        env_active_agencies = env_attributes['active_agencies']
+      # Test if active_agencies has changed, and update SC if so.
+      if sorted(active_agencies) != sorted(env_active_agencies):
+        active_agencies_dict = {'active_agencies': active_agencies}
+  except (KeyError, TypeError):
+    pass
+  except Exception as e:
+    log.error(f'failed to process active_agencies: {e}')
+  return active_agencies_dict
+
+
 def update_app_version(app_version, c_name, e_type, github_repo):
   log.debug(f'Starting update_app_version for {c_name}-{e_type}')
   version_key = f'version:{c_name}:{e_type}'
@@ -167,10 +221,10 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
 
   # variables to store just once for all attributes
   app_version = None
-  update_redis = False
+  update_version_redis = False
 
+  # main loop for the endpoint types
   for endpoint_tuple in endpoints_list:
-    output = {}
     if endpoint_uri := env_attributes.get(endpoint_tuple[0]):
       endpoint = f'{env_attributes["url"]}{endpoint_uri}'
       endpoint_type = endpoint_tuple[1]
@@ -186,36 +240,14 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       # Get component id
       c_id = component['id']
 
-      try:
-        log.debug(f'making call to: {endpoint}')
-        # Override default User-Agent other gets blocked by mod security.
-        headers = {'User-Agent': 'hmpps-health-ping'}
-        r = requests.get(endpoint, headers=headers, timeout=10)
-        output = r.json()
-        log.debug(f'Response received: {output}')
-        try:
-          stream_data.update({'json': str(json.dumps(output))})
-          # log.info(app_version)
-        except Exception as e:
-          log.error(f'{endpoint}: Unable to update stream_data with json')
-          log.error(e)
+      # make the call to the endpoint
+      output, stream_updated_data = get_http_endpoint(endpoint)
+      if stream_updated_data:
+        stream_data.update(stream_updated_data)
 
-        stream_data.update({'http_s': r.status_code})
-        log.info(f'{c_name}-{e_type} response: {r.status_code}: {endpoint}')
-
-      except requests.exceptions.RequestException as e:
-        # Set status code to 0 for failed connections
-        stream_data.update({'http_s': 0})
-        # Log error in stream for easier diagnosis of problems
-        stream_data.update({'error': str(e)})
-        log.error(f'Failed to get data from {endpoint} - exception: {e}')
-      except Exception as e:
-        log.error(f'Failed to parse response from {endpoint} - exception: {e}')
-      # Try to get app version.
+      # Try to get app version (HEAT-567 - get app version from build image tag on health or info)
       env_data = {}
       update_sc = False
-
-      # HEAT-567 - get app version from build image tag on health or info
       if app_version := get_build_image_tag(output):
         log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
         image_tag = []
@@ -227,40 +259,24 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
           log.info(
             f'Updating build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
           )
-          update_redis = True
+          update_version_redis = True
         else:
           log.debug(
             f'No change in build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}'
           )
         # leave the redis processing of the app version to the end of the loop
-
-        # Try to get active agencies
-        try:
-          if ('activeAgencies' in output) and (endpoint_type == 'info'):
-            active_agencies = output['activeAgencies']
-
-            log.info(f'SC active_agencies: {env_attributes["active_agencies"]}')
-            log.info(f'Existing active_agencies: {active_agencies}')
-
-            # if current active_agencies is empty/None set to empty list to enable comparison.
-            env_active_agencies = []
-            if env_attributes['active_agencies'] is not None:
-              env_active_agencies = env_attributes['active_agencies']
-            # Test if active_agencies has changed, and update SC if so.
-            if sorted(active_agencies) != sorted(env_active_agencies):
-              env_data.update({'active_agencies': active_agencies})
-              update_sc = True
-        except (KeyError, TypeError):
-          pass
-        except Exception as e:
-          log.error(f'failed to process active_agencies: {e}')
-
-        if update_sc:
-          update_sc_environment(env_id, env_data)
       else:
-        log.warning(
+        log.info(
           f'No app_version data in {endpoint_tuple[1]} endpoint for {env_attributes.get("name")}'
         )
+
+      # Try to get active agencies
+      if active_agencies := get_active_agencies(output, endpoint_type):
+        env_data.update(active_agencies)
+        update_sc = True
+
+      if update_sc:
+        update_sc_environment(env_id, env_data)
 
       # This is the bit where the redis stream gets updated - needs to be outdented
       log.debug(f'Updating redis stream {stream_key} with {stream_data}')
@@ -274,19 +290,25 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
         log.error(f'Unable to add data to redis stream. {e}')
 
         log.debug(
-          f'Completed process_env for {env_attributes.get("name")}:{endpoint_type}'
+          f'Completed process_env for {env_attributes.get("name")}:{endpoint_tuple[1]}'
         )
 
     else:
       log.warning(f'No endpoint URI found for {endpoint_tuple[1]}')
-    log.debug('checking app_version and update_redis')
-    # Now update the redis DB once for any of the attributes if there's a change
-    if app_version and update_redis:
-      log.debug(
-        f'app_version has been updated ({app_version}) and update_redis is true'
-      )
-      github_repo = component['attributes']['github_repo']
-      update_app_version(app_version, c_name, e_type, github_repo)
+  # loop ends here
+
+  # Now update the redis DB once for any of the attributes if there's a change
+  log.debug(
+    f'checking app_version and update_version_redis for {c_name}-{env_attributes.get("name")}'
+  )
+  if app_version and update_version_redis:
+    log.debug(
+      f'app_version has been updated ({app_version}) and update_version_redis is true'
+    )
+    github_repo = component['attributes']['github_repo']
+    update_app_version(app_version, c_name, e_type, github_repo)
+  else:
+    log.debug('no need to update version')
 
 
 class HealthHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -333,7 +355,7 @@ if __name__ == '__main__':
     log.info('Successfully connected to redis.')
     # Create root objects for latest if they don't exist
     if not redis.exists('latest:health'):
-      redis.json().set(f'latest:health', '$', {})
+      redis.json().set('latest:health', '$', {})
     if not redis.exists('latest:info'):
       redis.json().set('latest:info', '$', {})
     if not redis.exists('latest:versions'):
