@@ -257,23 +257,26 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
 
         if update_sc:
           update_sc_environment(env_id, env_data)
-        try:
-          log.debug(f'Updating redis stream {stream_key} with {stream_data}')
-          redis.xadd(
-            stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False
-          )
-          redis.json().set(f'latest:{endpoint_type}', f'$.{stream_key}', stream_data)
-          log.debug(f'{stream_key}: {stream_data}')
-        except Exception as e:
-          log.error(f'Unable to add data to redis stream. {e}')
+      else:
+        log.warning(
+          f'No app_version data in {endpoint_tuple[1]} endpoint for {env_attributes.get("name")}'
+        )
+
+      # This is the bit where the redis stream gets updated - needs to be outdented
+      log.debug(f'Updating redis stream {stream_key} with {stream_data}')
+      try:
+        redis.xadd(
+          stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False
+        )
+        redis.json().set(f'latest:{endpoint_type}', f'$.{stream_key}', stream_data)
+        log.debug(f'Redis stream updated - {stream_key}: {stream_data}')
+      except Exception as e:
+        log.error(f'Unable to add data to redis stream. {e}')
 
         log.debug(
           f'Completed process_env for {env_attributes.get("name")}:{endpoint_type}'
         )
-      else:
-        log.warning(
-          f'No output from {endpoint_tuple[1]} endpoint for {env_attributes.get("name")}'
-        )
+
     else:
       log.warning(f'No endpoint URI found for {endpoint_tuple[1]}')
     log.debug('checking app_version and update_redis')
