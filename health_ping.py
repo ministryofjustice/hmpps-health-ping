@@ -235,11 +235,13 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       # only add the bit after the '-' section
       # (while dev portal uses the environment subtable within components)
       if '-' in env_attributes['name']:
-        e_name = env_attributes['name'].split('-', -1)
+        e_name = env_attributes['name'].split('-')[-1]
       else:
         e_name = env_attributes['name']
+      log.debug(f'environment name e_name={e_name}')
       e_type = env_attributes['type']
       stream_key = f'{endpoint_type}:{c_name}:{e_name}'
+      log.debug(f'stream_key={stream_key}')
       stream_data = {}
       stream_data.update({'url': endpoint})
       stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
