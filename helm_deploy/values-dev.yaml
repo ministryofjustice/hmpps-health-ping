@@ -7,6 +7,9 @@ generic-service:
     REDIS_MAX_STREAM_LENGTH: 360
     LOG_LEVEL: debug
 
+  ingress:
+    host: hmpps-health-ping-dev.hmpps.service.justice.gov.uk
+
   namespace_secrets:
     hmpps-health-ping:
       SERVICE_CATALOGUE_FILTER: "SERVICE_CATALOGUE_FILTER"
