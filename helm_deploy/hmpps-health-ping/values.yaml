@@ -10,7 +10,8 @@ generic-service:
     port: 3000
 
   ingress:
-    enabled: false
+    enabled: true
+    tlsSecretName: hmpps-health-ping-cert
 
   # Due to a bug cant disable/override the sub chart.
   # https://github.com/helm/helm/pull/12162
