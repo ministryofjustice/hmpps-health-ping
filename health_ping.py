@@ -160,16 +160,22 @@ def get_active_agencies(output, endpoint_type):
   return active_agencies_dict
 
 
-def update_app_version(app_version, c_name, e_type, github_repo):
+def update_app_version(
+  app_version, update_version_history, c_name, e_type, github_repo
+):
   log.debug(f'Starting update_app_version for {c_name}-{e_type}')
   version_key = f'version:{c_name}:{e_type}'
   version_data = {'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
+
+  # Getting into the redis update bit
   try:
     with redis.lock(
       f'{c_name}_{e_type}', timeout=5, blocking=True, blocking_timeout=5
     ) as lock:
       log.debug(f'Got lock: {lock.locked()}, {lock.name}')
 
+    # Only update the version history if it's changed
+    if update_version_history:
       # Find the previous version different to current app version
       # Due to some duplicate entries we need to search the stream.
       versions_history = redis.xrevrange(version_key, max='+', min='-', count=10)
@@ -204,14 +210,15 @@ def update_app_version(app_version, c_name, e_type, github_repo):
         # Must be first time entry to version redis stream
         redis.xadd(version_key, version_data, maxlen=200, approximate=False)
         log.debug(f'Adding first entry to version: {version_key} = {version_data}')
-        return
 
     # Always update the latest version key
     redis.json().set('latest:versions', f'$.{version_key}', version_data)
-    log.info(f'Updated redis key with latest version. {version_key} = {version_data}')
-
+    log.info(
+      f'Updated latest:versions redis key with latest version. {version_key} = {version_data}'
+    )
   except Exception as e:
-    log.error(f'Failed to update redis: {e}')
+    log.error(f'Failed to update redis versions - {e}')
+
   log.debug(f'Completed update_app_version for {c_name}-{e_type}')
 
 
@@ -221,7 +228,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
 
   # variables to store just once for all attributes
   app_version = None
-  update_version_redis = False
+  update_version_history = False
 
   # main loop for the endpoint types
   for endpoint_tuple in endpoints_list:
@@ -268,7 +275,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
           log.info(
             f'Updating build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
           )
-          update_version_redis = True
+          update_version_history = True
         else:
           log.debug(
             f'No change in build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}'
@@ -308,16 +315,16 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
 
   # Now update the redis DB once for any of the attributes if there's a change
   log.debug(
-    f'checking app_version and update_version_redis for {c_name}-{env_attributes.get("name")}'
+    f'checking app_version and update_version_history for {c_name}-{env_attributes.get("name")}'
   )
-  if app_version and update_version_redis:
+  if app_version:
     log.debug(
-      f'app_version has been updated ({app_version}) and update_version_redis is true'
+      f'app_version:({app_version}) and update_version_history is {update_version_history}'
     )
     github_repo = component['attributes']['github_repo']
-    update_app_version(app_version, c_name, e_type, github_repo)
+    update_app_version(app_version, update_version_history, c_name, e_type, github_repo)
   else:
-    log.debug('no need to update version')
+    log.debug('no app version')
 
 
 class HealthHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
