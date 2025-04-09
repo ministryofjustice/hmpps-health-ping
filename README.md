@@ -4,8 +4,6 @@ This app fetches a list of all microservices/environments (components) from the 
 
 The redis stream data can be queried to create dashboards to display service health status/history. See https://github.com/ministryofjustice/hmpps-developer-portal/
 
-**Note:** Because redis is an in-memory database, if the instance is restarted, the data (including, for example, version history) will be lost.
-
 ## Redis streams
 
 Redis stream keys follow this naming pattern:
