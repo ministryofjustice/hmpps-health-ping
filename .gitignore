@@ -1,8 +1,7 @@
 # dotenv environment variables file
 !.env.example
 .env*
-
-
+.venv
 .idea
 .vscode
 **/Chart.lock

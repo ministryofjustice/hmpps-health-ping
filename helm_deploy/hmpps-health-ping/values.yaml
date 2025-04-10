@@ -10,7 +10,8 @@ generic-service:
     port: 3000
 
   ingress:
-    enabled: false
+    enabled: true
+    tlsSecretName: hmpps-health-ping-cert
 
   # Due to a bug cant disable/override the sub chart.
   # https://github.com/helm/helm/pull/12162
@@ -21,19 +22,19 @@ generic-service:
   livenessProbe:
     httpGet:
       path: /ping
-      port: 8080
-    initialDelaySeconds: 10
+      port: 3000
+    initialDelaySeconds: 5
     periodSeconds: 10
-    timeoutSeconds: 5
+    timeoutSeconds: 1
     failureThreshold: 5
 
   readinessProbe:
     httpGet:
       path: /ping
-      port: 8080
+      port: 3000
     initialDelaySeconds: 10
-    periodSeconds: 10
-    timeoutSeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 1
     failureThreshold: 5
 
   # Environment variables to load into the deployment
