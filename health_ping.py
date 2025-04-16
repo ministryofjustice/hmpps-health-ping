@@ -161,16 +161,16 @@ def get_active_agencies(output, endpoint_type):
 
 
 def update_app_version(
-  app_version, update_version_history, c_name, e_type, github_repo
+  app_version, update_version_history, c_name, e_name, github_repo
 ):
-  log.debug(f'Starting update_app_version for {c_name}-{e_type}')
-  version_key = f'version:{c_name}:{e_type}'
+  log.debug(f'Starting update_app_version for {c_name}-{e_name}')
+  version_key = f'version:{c_name}:{e_name}'
   version_data = {'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
 
   # Getting into the redis update bit
   try:
     with redis.lock(
-      f'{c_name}_{e_type}', timeout=5, blocking=True, blocking_timeout=5
+      f'{c_name}_{e_name}', timeout=5, blocking=True, blocking_timeout=5
     ) as lock:
       log.debug(f'Got lock: {lock.locked()}, {lock.name}')
 
@@ -219,7 +219,7 @@ def update_app_version(
   except Exception as e:
     log.error(f'Failed to update redis versions - {e}')
 
-  log.debug(f'Completed update_app_version for {c_name}-{e_type}')
+  log.debug(f'Completed update_app_version for {c_name}-{e_name}')
 
 
 def process_env(c_name, component, env_id, env_attributes, endpoints_list):
@@ -237,16 +237,8 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       endpoint_type = endpoint_tuple[1]
       log.debug(f'endpoint: {endpoint}')
       # Redis key to use for stream
-      # New environment table uses 'component-name-envname' as the name
-      # so if the environment name contains a '-'
-      # only add the bit after the '-' section
-      # (while dev portal uses the environment subtable within components)
-      if '-' in env_attributes['name']:
-        e_name = env_attributes['name'].split('-')[-1]
-      else:
-        e_name = env_attributes['name']
+      e_name = env_attributes['name']
       log.debug(f'environment name e_name={e_name}')
-      e_type = env_attributes['type']
       stream_key = f'{endpoint_type}:{c_name}:{e_name}'
       log.debug(f'stream_key={stream_key}')
       stream_data = {}
@@ -322,7 +314,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       f'app_version:({app_version}) and update_version_history is {update_version_history}'
     )
     github_repo = component['attributes']['github_repo']
-    update_app_version(app_version, update_version_history, c_name, e_type, github_repo)
+    update_app_version(app_version, update_version_history, c_name, e_name, github_repo)
   else:
     log.debug('no app version')
 
