@@ -237,16 +237,8 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       endpoint_type = endpoint_tuple[1]
       log.debug(f'endpoint: {endpoint}')
       # Redis key to use for stream
-      # New environment table uses 'component-name-envname' as the name
-      # so if the environment name contains a '-'
-      # only add the bit after the '-' section
-      # (while dev portal uses the environment subtable within components)
-      if '-' in env_attributes['name']:
-        e_name = env_attributes['name'].split('-')[-1]
-      else:
-        e_name = env_attributes['name']
+      e_name = env_attributes['name']
       log.debug(f'environment name e_name={e_name}')
-      e_type = env_attributes['type']
       stream_key = f'{endpoint_type}:{c_name}:{e_name}'
       log.debug(f'stream_key={stream_key}')
       stream_data = {}
