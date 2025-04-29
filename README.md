@@ -98,24 +98,24 @@ You will need the *AUTH* token to authenticate to the Redis instance.
 - Create a port forward pod to the development redis instance (check to see if there's already one using `kubectl get pods -n hmpps-portfolio-management-dev`)
 
 >```bash
-> kubectl \
->   -n hmpps-portfolio-management-dev \
->   run port-forward-pod \
->   --image=ministryofjustice/port-forward \
->   --port=6379 \
->   --env="REMOTE_HOST=[redis host]" \
->  --env="LOCAL_PORT=6379" \
-> --env="REMOTE_PORT=6379"
-> ```
+kubectl \
+   -n hmpps-portfolio-management-dev \
+   run port-forward-pod \
+   --image=ministryofjustice/port-forward \
+   --port=6379 \
+   --env="REMOTE_HOST=[redis host]" \
+  --env="LOCAL_PORT=6379" \
+  --env="REMOTE_PORT=6379"
+```
 
 - Use kubectl to port-forward to it:
 
 > ```bash
-> kubectl \
->   -n hmpps-portfolio-management-dev \
->   port-forward \
->   port-forward-pod 6379:6379
-> ```
+kubectl \
+   -n hmpps-portfolio-management-dev \
+   port-forward \
+   port-forward-pod 6379:6379
+ ```
 
 - Use the redis-cli to open a connection
 

@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 import psutil
 import os
 import threading
-import logging
 import requests
 import json
 from base64 import b64decode
@@ -14,6 +13,7 @@ import redis
 import http.server
 import socketserver
 import github
+from utilities.job_log_handling import log_debug, log_error, log_info, log_critical, log_warning, job
 
 max_threads = os.getenv('MAX_THREADS', 200)
 sc_api_endpoint = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
@@ -56,7 +56,7 @@ def get_build_image_tag(output):
   for loc in version_locations:
     try:
       version = eval(loc)
-      log.debug(f'version found in {loc}: {version}')
+      log_debug(f'version found in {loc}: {version}')
     except KeyError:  # no match to the key
       continue
     except AttributeError:  # there's NoneType going on
@@ -69,7 +69,7 @@ def get_build_image_tag(output):
 def update_sc_environment(env_id, env_data):
   data = {'data': env_data}
   try:
-    log.debug(f'Data to POST to strapi {data}')
+    log_debug(f'Data to POST to strapi {data}')
     x = requests.put(
       f'{sc_api_endpoint}/v1/environments/{env_id}',
       headers=sc_api_headers,
@@ -77,13 +77,13 @@ def update_sc_environment(env_id, env_data):
       timeout=10,
     )
     if x.status_code == 200:
-      log.info(f'Successfully updated environment id {env_id}: {x.status_code}')
+      log_info(f'Successfully updated environment id {env_id}: {x.status_code}')
     else:
-      log.info(
+      log_info(
         f'Received non-200 response from service catalogue for environment id {env_id}: {x.status_code} {x.content}'
       )
   except Exception as e:
-    log.error(f'Error updating environment in the SC: {e}')
+    log_error(f'Error updating environment in the SC: {e}')
 
 
 def git_compare_commits(github_repo, from_sha, to_sha):
@@ -100,7 +100,7 @@ def git_compare_commits(github_repo, from_sha, to_sha):
         }
       )
   except Exception as e:
-    log.error(
+    log_error(
       f'Error retreiving commits for repo: {github_repo} between {from_sha} and {to_sha} : {e}'
     )
   return comparison
@@ -110,30 +110,29 @@ def get_http_endpoint(endpoint):
   stream_data = {}
   output = {}
   try:
-    log.debug(f'making call to: {endpoint}')
+    log_debug(f'making call to: {endpoint}')
     # Override default User-Agent other gets blocked by mod security.
     headers = {'User-Agent': 'hmpps-health-ping'}
     r = requests.get(endpoint, headers=headers, timeout=10)
     output = r.json()
-    log.debug(f'Response received: {output}')
+    log_debug(f'Response received: {output}')
     try:
       stream_data.update({'json': str(json.dumps(output))})
-      # log.info(app_version)
+      # log_info(app_version)
     except Exception as e:
-      log.error(f'{endpoint}: Unable to update stream_data with json')
-      log.error(e)
+      log_error(f'{endpoint}: Unable to update stream_data with json - exception: {e}')
 
     stream_data.update({'http_s': r.status_code})
-    log.info(f'http response: {r.status_code}: {endpoint}')
+    log_info(f'http response: {r.status_code}: {endpoint}')
 
   except requests.exceptions.RequestException as e:
     # Set status code to 0 for failed connections
     stream_data.update({'http_s': 0})
     # Log error in stream for easier diagnosis of problems
     stream_data.update({'error': str(e)})
-    log.error(f'Failed to get data from {endpoint} - exception: {e}')
+    log_error(f'Failed to get data from {endpoint} - exception: {e}')
   except Exception as e:
-    log.error(f'Failed to parse response from {endpoint} - exception: {e}')
+    log_error(f'Failed to parse response from {endpoint} - exception: {e}')
   return output, stream_data
 
 
@@ -143,8 +142,8 @@ def get_active_agencies(output, endpoint_type):
     if ('activeAgencies' in output) and (endpoint_type == 'info'):
       active_agencies = output['activeAgencies']
 
-      log.info(f'SC active_agencies: {env_attributes["active_agencies"]}')
-      log.info(f'Existing active_agencies: {active_agencies}')
+      log_info(f'SC active_agencies: {env_attributes["active_agencies"]}')
+      log_info(f'Existing active_agencies: {active_agencies}')
 
       # if current active_agencies is empty/None set to empty list to enable comparison.
       env_active_agencies = []
@@ -156,14 +155,14 @@ def get_active_agencies(output, endpoint_type):
   except (KeyError, TypeError):
     pass
   except Exception as e:
-    log.error(f'failed to process active_agencies: {e}')
+    log_error(f'failed to process active_agencies: {e}')
   return active_agencies_dict
 
 
 def update_app_version(
   app_version, update_version_history, c_name, e_name, github_repo
 ):
-  log.debug(f'Starting update_app_version for {c_name}-{e_name}')
+  log_debug(f'Starting update_app_version for {c_name}-{e_name}')
   version_key = f'version:{c_name}:{e_name}'
   version_data = {'v': app_version, 'dateAdded': datetime.now(timezone.utc).isoformat()}
 
@@ -172,7 +171,7 @@ def update_app_version(
     with redis.lock(
       f'{c_name}_{e_name}', timeout=5, blocking=True, blocking_timeout=5
     ) as lock:
-      log.debug(f'Got lock: {lock.locked()}, {lock.name}')
+      log_debug(f'Got lock: {lock.locked()}, {lock.name}')
 
     # Only update the version history if it's changed
     if update_version_history:
@@ -200,31 +199,31 @@ def update_app_version(
             commits = git_compare_commits(
               github_repo, previous_deployed_version_sha, app_version_sha
             )
-            log.info(f'Fetching commits for build: {app_version}')
+            log_info(f'Fetching commits for build: {app_version}')
             version_data.update({'git_compare': json.dumps(commits)})
           redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-          log.info(
+          log_info(
             f'Updated redis stream with new version. {version_key} = {version_data}'
           )
       else:
         # Must be first time entry to version redis stream
         redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-        log.debug(f'Adding first entry to version: {version_key} = {version_data}')
+        log_debug(f'Adding first entry to version: {version_key} = {version_data}')
 
     # Always update the latest version key
     redis.json().set('latest:versions', f'$.{version_key}', version_data)
-    log.info(
+    log_info(
       f'Updated latest:versions redis key with latest version. {version_key} = {version_data}'
     )
   except Exception as e:
-    log.error(f'Failed to update redis versions - {e}')
+    log_error(f'Failed to update redis versions - {e}')
 
-  log.debug(f'Completed update_app_version for {c_name}-{e_name}')
+  log_debug(f'Completed update_app_version for {c_name}-{e_name}')
 
 
 def process_env(c_name, component, env_id, env_attributes, endpoints_list):
-  log.info(f'Processing {env_attributes.get("name")}')
-  log.debug(f'Memory usage: {process.memory_info().rss / 1024**2} MB')
+  log_info(f'Processing {env_attributes.get("name")}')
+  log_debug(f'Memory usage: {process.memory_info().rss / 1024**2} MB')
 
   # variables to store just once for all attributes
   app_version = None
@@ -235,12 +234,12 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
     if endpoint_uri := env_attributes.get(endpoint_tuple[0]):
       endpoint = f'{env_attributes["url"]}{endpoint_uri}'
       endpoint_type = endpoint_tuple[1]
-      log.debug(f'endpoint: {endpoint}')
+      log_debug(f'endpoint: {endpoint}')
       # Redis key to use for stream
       e_name = env_attributes['name']
-      log.debug(f'environment name e_name={e_name}')
+      log_debug(f'environment name e_name={e_name}')
       stream_key = f'{endpoint_type}:{c_name}:{e_name}'
-      log.debug(f'stream_key={stream_key}')
+      log_debug(f'stream_key={stream_key}')
       stream_data = {}
       stream_data.update({'url': endpoint})
       stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
@@ -257,24 +256,24 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       env_data = {}
       update_sc = False
       if app_version := get_build_image_tag(output):
-        log.debug(f'Found app version: {c_name}:{e_name}:{app_version}')
+        log_debug(f'Found app version: {c_name}:{e_name}:{app_version}')
         image_tag = []
         image_tag = env_attributes['build_image_tag']
-        log.debug((f'existing build_image_tag: {image_tag}'))
+        log_debug((f'existing build_image_tag: {image_tag}'))
         if app_version and app_version != image_tag:
           env_data.update({'build_image_tag': app_version})
           update_sc = True
-          log.info(
+          log_info(
             f'Updating build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
           )
           update_version_history = True
         else:
-          log.debug(
+          log_debug(
             f'No change in build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}'
           )
         # leave the redis processing of the app version to the end of the loop
       else:
-        log.info(
+        log_info(
           f'No app_version data in {endpoint_tuple[1]} endpoint for {env_attributes.get("name")}'
         )
 
@@ -287,37 +286,71 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
         update_sc_environment(env_id, env_data)
 
       # This is the bit where the redis stream gets updated - needs to be outdented
-      log.debug(f'Updating redis stream {stream_key} with {stream_data}')
+      log_debug(f'Updating redis stream {stream_key} with {stream_data}')
       try:
         redis.xadd(
           stream_key, stream_data, maxlen=redis_max_stream_length, approximate=False
         )
         redis.json().set(f'latest:{endpoint_type}', f'$.{stream_key}', stream_data)
-        log.debug(f'Redis stream updated - {stream_key}: {stream_data}')
+        log_debug(f'Redis stream updated - {stream_key}: {stream_data}')
       except Exception as e:
-        log.error(f'Unable to add data to redis stream. {e}')
+        log_error(f'Unable to add data to redis stream. {e}')
 
-        log.debug(
+        log_debug(
           f'Completed process_env for {env_attributes.get("name")}:{endpoint_tuple[1]}'
         )
 
     else:
-      log.warning(f'No endpoint URI found for {endpoint_tuple[1]}')
+      log_warning(f'No endpoint URI found for {endpoint_tuple[1]}')
   # loop ends here
 
   # Now update the redis DB once for any of the attributes if there's a change
-  log.debug(
+  log_debug(
     f'checking app_version and update_version_history for {c_name}-{env_attributes.get("name")}'
   )
   if app_version:
-    log.debug(
+    log_debug(
       f'app_version:({app_version}) and update_version_history is {update_version_history}'
     )
     github_repo = component['attributes']['github_repo']
     update_app_version(app_version, update_version_history, c_name, e_name, github_repo)
   else:
-    log.debug('no app version')
+    log_debug('no app version')
 
+def sc_scheduled_job_update(status):
+  try:
+    r = requests.get(sc_scheduled_jobs_endpoint, headers=sc_api_headers, timeout=20)
+    log_debug(r)
+    if r.status_code == 200:
+      j_data = r.json()['data']
+    else:
+      log_error(f'Getting data from scheduled-jobs Received non-200 response from Service Catalogue: {r.status_code}')
+
+  except Exception as e:
+    log_error(f'Unable to connect to Service Catalogue API. {e}')
+
+  job_data = {
+    "data" : {
+    "last_scheduled_run": datetime.now().isoformat(),
+    "result": status,
+    "error_details":  job.error_messages
+    }
+  }
+
+  if status == 'Succeeded':
+    job_data["last_successful_run"] = datetime.now().isoformat()
+  try:
+    job_id = j_data[0]['id']
+    x = requests.put(
+      f'{sc_api_endpoint}/v1/scheduled-jobs/{job_id}',
+      headers=sc_api_headers,
+      json=job_data,
+      timeout=10,
+    )
+    return True
+  except Exception as e:
+    log_error(f"Updatig data from scheduled-jobs Received non-200 response from Service Catalogue: {r.status_code}")
+  return False
 
 class HealthHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
   def do_GET(self):
@@ -335,10 +368,6 @@ def startHttpServer():
 
 
 if __name__ == '__main__':
-  logging.basicConfig(
-    format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=log_level
-  )
-  log = logging.getLogger(__name__)
   process = psutil.Process(os.getpid())
   main_threads = list()
   http_thread = list()
@@ -360,7 +389,7 @@ if __name__ == '__main__':
       redis_connect_args.update(dict(password=redis_token))
     redis = redis.Redis(**redis_connect_args)
     redis.ping()
-    log.info('Successfully connected to redis.')
+    log_info('Successfully connected to redis.')
     # Create root objects for latest if they don't exist
     if not redis.exists('latest:health'):
       redis.json().set('latest:health', '$', {})
@@ -369,7 +398,7 @@ if __name__ == '__main__':
     if not redis.exists('latest:versions'):
       redis.json().set('latest:versions', '$', {})
   except Exception as e:
-    log.critical('Unable to connect to redis.')
+    log_critical('Unable to connect to redis.')
     raise SystemExit(e)
 
   sc_api_headers = {
@@ -381,9 +410,9 @@ if __name__ == '__main__':
   # Test connection to Service Catalogue
   try:
     r = requests.head(f'{sc_api_endpoint}/_health', headers=sc_api_headers, timeout=20)
-    log.info(f'Successfully connected to the Service Catalogue. {r.status_code}')
+    log_info(f'Successfully connected to the Service Catalogue. {r.status_code}')
   except Exception as e:
-    log.critical('Unable to connect to the Service Catalogue.')
+    log_critical('Unable to connect to the Service Catalogue.')
     raise SystemExit(e)
 
   # Test auth and connection to github
@@ -396,22 +425,23 @@ if __name__ == '__main__':
 
     rate_limit = gh.get_rate_limit()
     core_rate_limit = rate_limit.core
-    log.info(f'Github API: {rate_limit}')
+    log_info(f'Github API: {rate_limit}')
     # test fetching organisation name
     gh.get_organization('ministryofjustice')
   except Exception as e:
-    log.critical('Unable to connect to the github API.')
+    log_critical('Unable to connect to the github API.')
     raise SystemExit(e) from e
 
   sc_endpoint = f'{sc_api_endpoint}/v1/components?populate=envs{sc_api_filter}'
+  sc_scheduled_jobs_endpoint = f'{sc_api_endpoint}/v1/scheduled-jobs?filters[name][$eq]=hmpps-health-ping'
 
   while True:
-    log.info(
+    log_info(
       f'Starting a new run. Service Catalogue endpoint: {sc_endpoint}. Current memory usage: {process.memory_info().rss / 1024**2} MB'
     )
     try:
       r = requests.get(sc_endpoint, headers=sc_api_headers, timeout=20)
-      log.debug(r)
+      log_debug(r)
       if r.status_code == 200:
         j_data = r.json()['data']
       else:
@@ -419,7 +449,7 @@ if __name__ == '__main__':
           f'Received non-200 response from Service Catalogue: {r.status_code}'
         )
     except Exception as e:
-      log.error(f'Unable to connect to Service Catalogue API. {e}')
+      log_error(f'Unable to connect to Service Catalogue API. {e}')
 
     for component in j_data:
       for env in component['attributes']['envs']['data']:
@@ -437,24 +467,33 @@ if __name__ == '__main__':
           main_threads.append(thread)
           # Apply limit on total active threads, avoid github secondary API rate limit
           while threading.active_count() > (max_threads - 1):
-            log.info(
+            log_info(
               f'Active Threads={threading.active_count()}, Max Threads={max_threads} - backing off for a few seconds'
             )
             sleep(3)
           thread.start()
-          log.info(
+          log_info(
             f'Started thread for {env_attributes.get("name")} (active threads: {threading.active_count()})'
           )
         else:
           continue
-      log.debug(f'Active threads: {threading.active_count()}')
+      log_debug(f'Active threads: {threading.active_count()}')
 
     # Allow the threads to finish before sleeping
     for thread in main_threads:
       thread.join()
-    log.info(
+    log_info(
       f'Completed all threads. Sleeping for {refresh_interval} seconds. Current memory usage: {process.memory_info().rss / 1024**2} MB.'
     )
-    # Added clearing the main_threads list to release memory
+
+    if job.error_messages:
+      sc_scheduled_job_update('Errors')
+      log_info("hmpps-health-ping job completed  with errors.")
+    else:
+      sc_scheduled_job_update('Succeeded')
+      log_info("hmpps-health-ping job completed successfully.")
+
+    # Clear the main threads list and error messages for the next run
     main_threads.clear()
+    job.error_messages.clear()
     sleep(refresh_interval)
