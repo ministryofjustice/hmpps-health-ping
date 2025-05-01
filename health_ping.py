@@ -13,6 +13,7 @@ import redis
 import http.server
 import socketserver
 import github
+from classes.slack import Slack
 from utilities.job_log_handling import log_debug, log_error, log_info, log_critical, log_warning, job
 
 max_threads = os.getenv('MAX_THREADS', 200)
@@ -325,7 +326,6 @@ def sc_scheduled_job_update(status):
       j_data = r.json()['data']
     else:
       log_error(f'Getting data from scheduled-jobs Received non-200 response from Service Catalogue: {r.status_code}')
-
   except Exception as e:
     log_error(f'Unable to connect to Service Catalogue API. {e}')
 
@@ -376,6 +376,14 @@ if __name__ == '__main__':
   http_thread.append(httpHealth)
   httpHealth.start()
 
+  # Set up slack notification params
+  slack_params = {
+    'token': os.getenv('SLACK_BOT_TOKEN'),
+    'notify_channel': os.getenv('SLACK_NOTIFY_CHANNEL', ''),
+    'alert_channel': os.getenv('SLACK_ALERT_CHANNEL', ''),
+  }
+  slack = Slack(slack_params)
+
   # Test connection to redis
   try:
     redis_connect_args = dict(
@@ -399,6 +407,7 @@ if __name__ == '__main__':
       redis.json().set('latest:versions', '$', {})
   except Exception as e:
     log_critical('Unable to connect to redis.')
+    slack.alert('*Health Ping failed*: Unable to connect to redis.')
     raise SystemExit(e)
 
   sc_api_headers = {
@@ -413,6 +422,7 @@ if __name__ == '__main__':
     log_info(f'Successfully connected to the Service Catalogue. {r.status_code}')
   except Exception as e:
     log_critical('Unable to connect to the Service Catalogue.')
+    slack.alert('*Health Ping failed*: Unable to connect to the Service Catalogue.')
     raise SystemExit(e)
 
   # Test auth and connection to github
@@ -430,6 +440,7 @@ if __name__ == '__main__':
     gh.get_organization('ministryofjustice')
   except Exception as e:
     log_critical('Unable to connect to the github API.')
+    slack.alert('*Health Ping failed*: Unable to connect to github API')
     raise SystemExit(e) from e
 
   sc_endpoint = f'{sc_api_endpoint}/v1/components?populate=envs{sc_api_filter}'
@@ -485,13 +496,12 @@ if __name__ == '__main__':
     log_info(
       f'Completed all threads. Sleeping for {refresh_interval} seconds. Current memory usage: {process.memory_info().rss / 1024**2} MB.'
     )
-
-    if job.error_messages:
-      sc_scheduled_job_update('Errors')
-      log_info("hmpps-health-ping job completed  with errors.")
+    # Even if job had errors , error will be recorded in SC and job will be marked successful  
+    # as few services are expected to fail. 
+    if sc_scheduled_job_update('Succeeded'):
+      log_info("hmpps-health-ping job updated successfully in Service Catalogue")
     else:
-      sc_scheduled_job_update('Succeeded')
-      log_info("hmpps-health-ping job completed successfully.")
+      log_info("hmpps-health-ping job update failed in Service Catalogue")
 
     # Clear the main threads list and error messages for the next run
     main_threads.clear()
