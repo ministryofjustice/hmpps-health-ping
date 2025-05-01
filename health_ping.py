@@ -333,12 +333,13 @@ def sc_scheduled_job_update(status):
     "data" : {
     "last_scheduled_run": datetime.now().isoformat(),
     "result": status,
-    "error_details":  job.error_messages
+    "error_details":  job.error_messages,
     }
   }
 
   if status == 'Succeeded':
-    job_data["last_successful_run"] = datetime.now().isoformat()
+    job_data["data"]["last_successful_run"] = datetime.now().isoformat()
+
   try:
     job_id = j_data[0]['id']
     x = requests.put(
@@ -349,7 +350,7 @@ def sc_scheduled_job_update(status):
     )
     return True
   except Exception as e:
-    log_error(f"Updatig data from scheduled-jobs Received non-200 response from Service Catalogue: {r.status_code}")
+    log_error(f"Updatig data from scheduled-jobs Received non-200 response from Service Catalogue: {x.status_code}")
   return False
 
 class HealthHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
@@ -384,6 +385,23 @@ if __name__ == '__main__':
   }
   slack = Slack(slack_params)
 
+  # Test connection to Service Catalogue
+  sc_api_headers = {
+    'Authorization': f'Bearer {sc_api_token}',
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  }
+  sc_endpoint = f'{sc_api_endpoint}/v1/components?populate=envs{sc_api_filter}'
+  sc_scheduled_jobs_endpoint = f'{sc_api_endpoint}/v1/scheduled-jobs?filters[name][$eq]=hmpps-health-ping'
+
+  try:
+    r = requests.head(f'{sc_api_endpoint}/_health', headers=sc_api_headers, timeout=20)
+    log_info(f'Successfully connected to the Service Catalogue. {r.status_code}')
+  except Exception as e:
+    log_critical('Unable to connect to the Service Catalogue.')
+    slack.alert('*Health Ping failed*: Unable to connect to the Service Catalogue.')
+    raise SystemExit(e)
+
   # Test connection to redis
   try:
     redis_connect_args = dict(
@@ -408,21 +426,7 @@ if __name__ == '__main__':
   except Exception as e:
     log_critical('Unable to connect to redis.')
     slack.alert('*Health Ping failed*: Unable to connect to redis.')
-    raise SystemExit(e)
-
-  sc_api_headers = {
-    'Authorization': f'Bearer {sc_api_token}',
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  }
-
-  # Test connection to Service Catalogue
-  try:
-    r = requests.head(f'{sc_api_endpoint}/_health', headers=sc_api_headers, timeout=20)
-    log_info(f'Successfully connected to the Service Catalogue. {r.status_code}')
-  except Exception as e:
-    log_critical('Unable to connect to the Service Catalogue.')
-    slack.alert('*Health Ping failed*: Unable to connect to the Service Catalogue.')
+    sc_scheduled_job_update('Failed')
     raise SystemExit(e)
 
   # Test auth and connection to github
@@ -441,10 +445,8 @@ if __name__ == '__main__':
   except Exception as e:
     log_critical('Unable to connect to the github API.')
     slack.alert('*Health Ping failed*: Unable to connect to github API')
+    sc_scheduled_job_update('Failed')
     raise SystemExit(e) from e
-
-  sc_endpoint = f'{sc_api_endpoint}/v1/components?populate=envs{sc_api_filter}'
-  sc_scheduled_jobs_endpoint = f'{sc_api_endpoint}/v1/scheduled-jobs?filters[name][$eq]=hmpps-health-ping'
 
   while True:
     log_info(
