@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "35 9 * * MON-FRI" # Every weekday at 09:35 UTC
 
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+  
 jobs:
   security-veracode-pipeline-scan:
     name: Project security veracode pipeline scan

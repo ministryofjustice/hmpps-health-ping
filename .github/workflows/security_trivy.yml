@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "35 9 * * MON-FRI" # Every weekday at 09:35 UTC
 
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+  
 jobs:
   security-kotlin-trivy-check:
     name: Project security trivy dependency check

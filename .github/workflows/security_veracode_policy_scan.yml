@@ -5,6 +5,11 @@ on:
   schedule:
     - cron: "10 9 * * 1" # Every Monday at 09:10 UTC
 
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+  
 jobs:
   security-veracode-policy-check:
     name: Project security veracode policy scan
