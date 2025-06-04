@@ -5,7 +5,7 @@ on:
     - cron: "35 9 * * MON-FRI" # Every weekday
 
 jobs:
-  security-codeql-actions-check:
+  security-codeql-python-check:
     permissions:
       contents: read
       actions: read
