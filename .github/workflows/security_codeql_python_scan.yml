@@ -1,11 +1,11 @@
-name: Security CodeQL actions scan
+name: Security CodeQL Python scan
 on:
   workflow_dispatch:
   schedule:
     - cron: "35 9 * * MON-FRI" # Every weekday
 
 jobs:
-  security-codeql-actions-check:
+  security-codeql-python-check:
     permissions:
       contents: read
       actions: read
