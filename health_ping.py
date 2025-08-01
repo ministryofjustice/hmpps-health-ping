@@ -143,13 +143,13 @@ def get_active_agencies(output, endpoint_type):
     if ('activeAgencies' in output) and (endpoint_type == 'info'):
       active_agencies = output['activeAgencies']
 
-      log_info(f'SC active_agencies: {env_attributes["active_agencies"]}')
+      log_info(f'SC active_agencies: {env["active_agencies"]}')
       log_info(f'Existing active_agencies: {active_agencies}')
 
       # if current active_agencies is empty/None set to empty list to enable comparison.
       env_active_agencies = []
-      if env_attributes['active_agencies'] is not None:
-        env_active_agencies = env_attributes['active_agencies']
+      if env['active_agencies'] is not None:
+        env_active_agencies = env['active_agencies']
       # Test if active_agencies has changed, and update SC if so.
       if sorted(active_agencies) != sorted(env_active_agencies):
         active_agencies_dict = {'active_agencies': active_agencies}
@@ -222,8 +222,8 @@ def update_app_version(
   log_debug(f'Completed update_app_version for {c_name}-{e_name}')
 
 
-def process_env(c_name, component, env_id, env_attributes, endpoints_list):
-  log_info(f'Processing {env_attributes.get("name")}')
+def process_env(c_name, component, env_id, env, endpoints_list):
+  log_info(f'Processing {env.get("name")}')
   log_debug(f'Memory usage: {process.memory_info().rss / 1024**2} MB')
 
   # variables to store just once for all attributes
@@ -232,12 +232,12 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
 
   # main loop for the endpoint types
   for endpoint_tuple in endpoints_list:
-    if endpoint_uri := env_attributes.get(endpoint_tuple[0]):
-      endpoint = f'{env_attributes["url"]}{endpoint_uri}'
+    if endpoint_uri := env.get(endpoint_tuple[0]):
+      endpoint = f'{env["url"]}{endpoint_uri}'
       endpoint_type = endpoint_tuple[1]
       log_debug(f'endpoint: {endpoint}')
       # Redis key to use for stream
-      e_name = env_attributes['name']
+      e_name = env['name']
       log_debug(f'environment name e_name={e_name}')
       stream_key = f'{endpoint_type}:{c_name}:{e_name}'
       log_debug(f'stream_key={stream_key}')
@@ -246,7 +246,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
 
       # Get component id
-      c_id = component['id']
+      c_id = component.get('documentId', {})
 
       # make the call to the endpoint
       output, stream_updated_data = get_http_endpoint(endpoint)
@@ -259,7 +259,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
       if app_version := get_build_image_tag(output):
         log_debug(f'Found app version: {c_name}:{e_name}:{app_version}')
         image_tag = []
-        image_tag = env_attributes['build_image_tag']
+        image_tag = env['build_image_tag']
         log_debug((f'existing build_image_tag: {image_tag}'))
         if app_version and app_version != image_tag:
           env_data.update({'build_image_tag': app_version})
@@ -275,7 +275,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
         # leave the redis processing of the app version to the end of the loop
       else:
         log_info(
-          f'No app_version data in {endpoint_tuple[1]} endpoint for {env_attributes.get("name")}'
+          f'No app_version data in {endpoint_tuple[1]} endpoint for {env.get("name")}'
         )
 
       # Try to get active agencies
@@ -298,7 +298,7 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
         log_error(f'Unable to add data to redis stream. {e}')
 
         log_debug(
-          f'Completed process_env for {env_attributes.get("name")}:{endpoint_tuple[1]}'
+          f'Completed process_env for {env.get("name")}:{endpoint_tuple[1]}'
         )
 
     else:
@@ -307,13 +307,13 @@ def process_env(c_name, component, env_id, env_attributes, endpoints_list):
 
   # Now update the redis DB once for any of the attributes if there's a change
   log_debug(
-    f'checking app_version and update_version_history for {c_name}-{env_attributes.get("name")}'
+    f'checking app_version and update_version_history for {c_name}-{env.get("name")}'
   )
   if app_version:
     log_debug(
       f'app_version:({app_version}) and update_version_history is {update_version_history}'
     )
-    github_repo = component['attributes']['github_repo']
+    github_repo = component['github_repo']
     update_app_version(app_version, update_version_history, c_name, e_name, github_repo)
   else:
     log_debug('no app version')
@@ -341,7 +341,7 @@ def sc_scheduled_job_update(status):
     job_data["data"]["last_successful_run"] = datetime.now().isoformat()
 
   try:
-    job_id = j_data[0]['id']
+    job_id = j_data[0].get('documentId', {})
     x = requests.put(
       f'{sc_api_endpoint}/v1/scheduled-jobs/{job_id}',
       headers=sc_api_headers,
@@ -465,16 +465,15 @@ if __name__ == '__main__':
       log_error(f'Unable to connect to Service Catalogue API. {e}')
 
     for component in j_data:
-      for env in component['attributes']['envs']['data']:
-        c_name = component['attributes']['name']
-        env_attributes = env['attributes']
-        env_id = env['id']
-        if env_attributes.get('url') and env_attributes.get('monitor'):
+      for env in component.get('envs',{}):
+        c_name = component.get('name')
+        env_id = env.get('documentId', {})
+        if env.get('url') and env.get('monitor'):
           # moving the endpoint_tuple loop inside the process_env
           # to avoid duplication of build_image_tag if it's present in both health and info
           thread = threading.Thread(
             target=process_env,
-            args=(c_name, component, env_id, env_attributes, endpoints_list),
+            args=(c_name, component, env_id, env, endpoints_list),
             daemon=True,
           )
           main_threads.append(thread)
@@ -486,7 +485,7 @@ if __name__ == '__main__':
             sleep(3)
           thread.start()
           log_info(
-            f'Started thread for {env_attributes.get("name")} (active threads: {threading.active_count()})'
+            f'Started thread for {env.get("name")} (active threads: {threading.active_count()})'
           )
         else:
           continue
