@@ -391,7 +391,7 @@ if __name__ == '__main__':
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   }
-  sc_endpoint = f'{sc_api_endpoint}/v1/components?populate=envs{sc_api_filter}'
+  sc_endpoint = f'{sc_api_endpoint}/v1/components?populate[envs]=true{sc_api_filter}'
   sc_scheduled_jobs_endpoint = f'{sc_api_endpoint}/v1/scheduled-jobs?filters[name][$eq]=hmpps-health-ping'
 
   try:
