@@ -246,7 +246,7 @@ def process_env(c_name, component, env_id, env, endpoints_list):
       stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
 
       # Get component id
-      c_id = component.get('documentId', {})
+      c_id = component.get('documentId', None)
 
       # make the call to the endpoint
       output, stream_updated_data = get_http_endpoint(endpoint)
