@@ -246,7 +246,7 @@ def process_env(c_name, component, env_id, env, endpoints_list):
       stream_data.update({'dateAdded': datetime.now(timezone.utc).isoformat()})
 
       # Get component id
-      c_id = component.get('documentId', None)
+      c_id = component.get('documentId', '')
 
       # make the call to the endpoint
       output, stream_updated_data = get_http_endpoint(endpoint)
@@ -259,7 +259,7 @@ def process_env(c_name, component, env_id, env, endpoints_list):
       if app_version := get_build_image_tag(output):
         log_debug(f'Found app version: {c_name}:{e_name}:{app_version}')
         image_tag = []
-        image_tag = env['build_image_tag']
+        image_tag = env.get('build_image_tag','')
         log_debug((f'existing build_image_tag: {image_tag}'))
         if app_version and app_version != image_tag:
           env_data.update({'build_image_tag': app_version})
@@ -313,7 +313,7 @@ def process_env(c_name, component, env_id, env, endpoints_list):
     log_debug(
       f'app_version:({app_version}) and update_version_history is {update_version_history}'
     )
-    github_repo = component['github_repo']
+    github_repo = component.get('github_repo','')
     update_app_version(app_version, update_version_history, c_name, e_name, github_repo)
   else:
     log_debug('no app version')
@@ -341,7 +341,7 @@ def sc_scheduled_job_update(status):
     job_data["data"]["last_successful_run"] = datetime.now().isoformat()
 
   try:
-    job_id = j_data[0].get('documentId', {})
+    job_id = j_data[0].get('documentId', '')
     x = requests.put(
       f'{sc_api_endpoint}/v1/scheduled-jobs/{job_id}',
       headers=sc_api_headers,
@@ -465,9 +465,9 @@ if __name__ == '__main__':
       log_error(f'Unable to connect to Service Catalogue API. {e}')
 
     for component in j_data:
-      for env in component.get('envs',{}):
+      for env in component.get('envs',[]):
         c_name = component.get('name')
-        env_id = env.get('documentId', {})
+        env_id = env.get('documentId', '')
         if env.get('url') and env.get('monitor'):
           # moving the endpoint_tuple loop inside the process_env
           # to avoid duplication of build_image_tag if it's present in both health and info
