@@ -13,7 +13,7 @@ import redis
 import http.server
 import socketserver
 import github
-from classes.slack import Slack
+from hmpps import Slack
 from hmpps.services.job_log_handling import (
   log_debug,
   log_error,
