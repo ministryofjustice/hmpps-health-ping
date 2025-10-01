@@ -3,6 +3,9 @@ WORKDIR /app
 
 RUN addgroup -g 2000 appgroup && \
     adduser -u 2000 -G appgroup -h /home/appuser -D appuser
+ 
+# add the necessary libraries
+RUN apk add --no-cache gcc python3-dev musl-dev linux-headers
 
 # initialise uv
 COPY pyproject.toml .
