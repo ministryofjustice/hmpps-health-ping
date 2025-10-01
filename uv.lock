@@ -201,7 +201,7 @@ dependencies = [
     { name = "slack-sdk" },
 ]
 wheels = [
-    { url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.0/hmpps_python_lib-0.1.0-py3-none-any.whl", hash = "sha256:cfd3c80cb03413321e3a4de420a32fcccda0438406e91f8210bc8068b169b9ab" },
+    { url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.0/hmpps_python_lib-0.1.0-py3-none-any.whl", hash = "sha256:e1f6b4b617672c11af2cc133c79f99b99969d7dbfc5d4a370a0cc6e6e70c1d7f" },
 ]
 
 [package.metadata]
