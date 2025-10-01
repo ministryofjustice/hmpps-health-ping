@@ -8,8 +8,7 @@ RUN addgroup -g 2000 appgroup && \
 COPY pyproject.toml .
 RUN uv sync
 
-# copy the dependencies from builder stage
-COPY --chown=appuser:appgroup /home/appuser/.local /home/appuser/.local
+# copy the software
 COPY ./health_ping.py .
 
 # update PATH environment variable
