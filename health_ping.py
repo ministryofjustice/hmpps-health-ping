@@ -14,7 +14,14 @@ import http.server
 import socketserver
 import github
 from classes.slack import Slack
-from utilities.job_log_handling import log_debug, log_error, log_info, log_critical, log_warning, job
+from hmpps.services.job_log_handling import (
+  log_debug,
+  log_error,
+  log_info,
+  log_critical,
+  log_warning,
+  job,
+)
 
 max_threads = os.getenv('MAX_THREADS', 200)
 sc_api_endpoint = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
@@ -30,8 +37,8 @@ redis_token = os.getenv('REDIS_TOKEN', '')
 redis_max_stream_length = int(os.getenv('REDIS_MAX_STREAM_LENGTH', '360'))
 refresh_interval = int(os.getenv('REFRESH_INTERVAL', '60'))
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
-GITHUB_APP_ID = int(os.getenv('GITHUB_APP_ID'))
-GITHUB_APP_INSTALLATION_ID = int(os.getenv('GITHUB_APP_INSTALLATION_ID'))
+GITHUB_APP_ID = int(os.getenv('GITHUB_APP_ID', '0'))
+GITHUB_APP_INSTALLATION_ID = int(os.getenv('GITHUB_APP_INSTALLATION_ID', '0'))
 GITHUB_APP_PRIVATE_KEY = os.getenv('GITHUB_APP_PRIVATE_KEY')
 
 # limit results for testing/dev
@@ -259,7 +266,7 @@ def process_env(c_name, component, env_id, env, endpoints_list):
       if app_version := get_build_image_tag(output):
         log_debug(f'Found app version: {c_name}:{e_name}:{app_version}')
         image_tag = []
-        image_tag = env.get('build_image_tag','')
+        image_tag = env.get('build_image_tag', '')
         log_debug((f'existing build_image_tag: {image_tag}'))
         if app_version and app_version != image_tag:
           env_data.update({'build_image_tag': app_version})
@@ -297,9 +304,7 @@ def process_env(c_name, component, env_id, env, endpoints_list):
       except Exception as e:
         log_error(f'Unable to add data to redis stream. {e}')
 
-        log_debug(
-          f'Completed process_env for {env.get("name")}:{endpoint_tuple[1]}'
-        )
+        log_debug(f'Completed process_env for {env.get("name")}:{endpoint_tuple[1]}')
 
     else:
       log_warning(f'No endpoint URI found for {endpoint_tuple[1]}')
@@ -313,10 +318,11 @@ def process_env(c_name, component, env_id, env, endpoints_list):
     log_debug(
       f'app_version:({app_version}) and update_version_history is {update_version_history}'
     )
-    github_repo = component.get('github_repo','')
+    github_repo = component.get('github_repo', '')
     update_app_version(app_version, update_version_history, c_name, e_name, github_repo)
   else:
     log_debug('no app version')
+
 
 def sc_scheduled_job_update(status):
   try:
@@ -325,20 +331,22 @@ def sc_scheduled_job_update(status):
     if r.status_code == 200:
       j_data = r.json()['data']
     else:
-      log_error(f'Getting data from scheduled-jobs Received non-200 response from Service Catalogue: {r.status_code}')
+      log_error(
+        f'Getting data from scheduled-jobs Received non-200 response from Service Catalogue: {r.status_code}'
+      )
   except Exception as e:
     log_error(f'Unable to connect to Service Catalogue API. {e}')
 
   job_data = {
-    "data" : {
-    "last_scheduled_run": datetime.now().isoformat(),
-    "result": status,
-    "error_details":  job.error_messages,
+    'data': {
+      'last_scheduled_run': datetime.now().isoformat(),
+      'result': status,
+      'error_details': job.error_messages,
     }
   }
 
   if status == 'Succeeded':
-    job_data["data"]["last_successful_run"] = datetime.now().isoformat()
+    job_data['data']['last_successful_run'] = datetime.now().isoformat()
 
   try:
     job_id = j_data[0].get('documentId', '')
@@ -350,8 +358,11 @@ def sc_scheduled_job_update(status):
     )
     return True
   except Exception as e:
-    log_error(f"Updatig data from scheduled-jobs Received non-200 response from Service Catalogue: {x.status_code}")
+    log_error(
+      f'Updatig data from scheduled-jobs Received non-200 response from Service Catalogue: {x.status_code}'
+    )
   return False
+
 
 class HealthHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
   def do_GET(self):
@@ -392,7 +403,9 @@ if __name__ == '__main__':
     'Accept': 'application/json',
   }
   sc_endpoint = f'{sc_api_endpoint}/v1/components?populate[envs]=true{sc_api_filter}'
-  sc_scheduled_jobs_endpoint = f'{sc_api_endpoint}/v1/scheduled-jobs?filters[name][$eq]=hmpps-health-ping'
+  sc_scheduled_jobs_endpoint = (
+    f'{sc_api_endpoint}/v1/scheduled-jobs?filters[name][$eq]=hmpps-health-ping'
+  )
 
   try:
     r = requests.head(f'{sc_api_endpoint}/_health', headers=sc_api_headers, timeout=20)
@@ -465,7 +478,7 @@ if __name__ == '__main__':
       log_error(f'Unable to connect to Service Catalogue API. {e}')
 
     for component in j_data:
-      for env in component.get('envs',[]):
+      for env in component.get('envs', []):
         c_name = component.get('name')
         env_id = env.get('documentId', '')
         if env.get('url') and env.get('monitor'):
@@ -497,12 +510,12 @@ if __name__ == '__main__':
     log_info(
       f'Completed all threads. Sleeping for {refresh_interval} seconds. Current memory usage: {process.memory_info().rss / 1024**2} MB.'
     )
-    # Even if job had errors , error will be recorded in SC and job will be marked successful  
-    # as few services are expected to fail. 
+    # Even if job had errors , error will be recorded in SC and job will be marked successful
+    # as few services are expected to fail.
     if sc_scheduled_job_update('Succeeded'):
-      log_info("hmpps-health-ping job updated successfully in Service Catalogue")
+      log_info('hmpps-health-ping job updated successfully in Service Catalogue')
     else:
-      log_info("hmpps-health-ping job update failed in Service Catalogue")
+      log_info('hmpps-health-ping job update failed in Service Catalogue')
 
     # Clear the main threads list and error messages for the next run
     main_threads.clear()

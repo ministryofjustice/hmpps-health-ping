@@ -1,5 +1,0 @@
-redis==4.6.0
-requests==2.32.4
-PyGithub==1.59.1
-psutil>=7.0.0
-slack_sdk==3.31.0

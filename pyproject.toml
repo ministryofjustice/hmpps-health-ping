@@ -1,0 +1,14 @@
+[project]
+name = "hmpps-health-ping"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "hmpps-python-lib",
+    "psutil>=7.0.0",
+    "redis==4.6.0",
+]
+
+[tool.uv.sources]
+hmpps-python-lib = { url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.0/hmpps_python_lib-0.1.0-py3-none-any.whl" }
