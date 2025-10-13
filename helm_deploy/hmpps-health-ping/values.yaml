@@ -44,6 +44,8 @@ generic-service:
     REDIS_PORT: 6379
     REDIS_MAX_STREAM_LENGTH: 360
     LOG_LEVEL: debug
+    SLACK_NOTIFY_CHANNEL: ""
+    SLACK_ALERT_CHANNEL: ""
 
   # Pre-existing kubernetes secrets to load as environment variables in the deployment.
   # namespace_secrets:
@@ -58,8 +60,6 @@ generic-service:
       GITHUB_APP_INSTALLATION_ID: "GITHUB_APP_INSTALLATION_ID"
       GITHUB_APP_PRIVATE_KEY: "GITHUB_APP_PRIVATE_KEY"
       SLACK_BOT_TOKEN: "SLACK_BOT_TOKEN"
-      SLACK_ALERT_CHANNEL: "SLACK_ALERT_CHANNEL"
-      SLACK_NOTIFY_CHANNEL: "SLACK_NOTIFY_CHANNEL"
     elasticache-redis:
       REDIS_ENDPOINT: "primary_endpoint_address"
       REDIS_TOKEN: "auth_token"
