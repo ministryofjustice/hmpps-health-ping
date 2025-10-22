@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-HMPPS Slack Relay Bot
+HMPPS Health Ping
 
-A Python application that listens to messages on specific Slack channels
-and forwards them to other channels based on configurable mappings.
+A Python application that loops through the service catalogue to check health of components
 """
 
 import os

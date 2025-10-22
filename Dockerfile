@@ -12,11 +12,11 @@ COPY pyproject.toml .
 RUN uv sync
 
 # copy the software
-COPY ./health_ping.py .
+COPY ./*.py .
 
 # update PATH environment variable
 ENV PATH=/home/appuser/.local:$PATH
 
 USER 2000
 
-CMD [ "uv", "run", "python", "-u", "health_ping.py" ]
+CMD [ "uv", "run", "python", "-u", "main.py" ]
