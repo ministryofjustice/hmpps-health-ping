@@ -38,6 +38,10 @@ generic-service:
     timeoutSeconds: 1
     failureThreshold: 5
 
+  allowlist:
+    groups:
+      - internal
+
   # Environment variables to load into the deployment
   env:
     REFRESH_INTERVAL: "180"
