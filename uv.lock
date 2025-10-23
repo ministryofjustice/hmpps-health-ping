@@ -241,7 +241,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hmpps-python-lib", url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.6/hmpps_python_lib-0.1.6-py3-none-any.whl" },
+    { name = "hmpps-python-lib", git = "https://github.com/ministryofjustice/hmpps-python-lib.git?rev=patch%2Fcheck_ping" },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "redis", specifier = "==4.6.0" },
 ]
@@ -249,7 +249,7 @@ requires-dist = [
 [[package]]
 name = "hmpps-python-lib"
 version = "0.1.6"
-source = { url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.6/hmpps_python_lib-0.1.6-py3-none-any.whl" }
+source = { git = "https://github.com/ministryofjustice/hmpps-python-lib.git?rev=patch%2Fcheck_ping#7bedda7b1273e49374e0c077e2553105d944e70d" }
 dependencies = [
     { name = "flask" },
     { name = "gitpython" },
@@ -257,19 +257,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "slack-sdk" },
-]
-wheels = [
-    { url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.6/hmpps_python_lib-0.1.6-py3-none-any.whl", hash = "sha256:2c4e9ac560eab99226a3856ab5608eadaeff63b4e516225eeae8692c3e539078" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "flask", specifier = ">=3.1.2" },
-    { name = "gitpython", specifier = ">=3.1.0" },
-    { name = "pygithub", specifier = ">=2.6.1" },
-    { name = "pyyaml", specifier = "==6.0.1" },
-    { name = "requests", specifier = ">=2.32.5" },
-    { name = "slack-sdk", specifier = ">=3.36.0" },
 ]
 
 [[package]]
