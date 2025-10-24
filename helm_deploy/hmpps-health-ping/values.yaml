@@ -7,12 +7,13 @@ generic-service:
   image:
     repository: ghcr.io/ministryofjustice/hmpps-health-ping
     tag: xxx    # override at deployment time
-    port: 3000
+    port: 8080
 
   ingress:
     enabled: true
     tlsSecretName: hmpps-health-ping-cert
-
+    path: /info
+    healthPath: /health
   # Due to a bug cant disable/override the sub chart.
   # https://github.com/helm/helm/pull/12162
   # Have implemented a basic http health endpoint, until this bug is fixed.
@@ -22,7 +23,7 @@ generic-service:
   livenessProbe:
     httpGet:
       path: /ping
-      port: 3000
+      port: 8080
     initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 1
@@ -31,11 +32,15 @@ generic-service:
   readinessProbe:
     httpGet:
       path: /ping
-      port: 3000
+      port: 8080
     initialDelaySeconds: 10
     periodSeconds: 5
     timeoutSeconds: 1
     failureThreshold: 5
+
+  allowlist:
+    groups:
+      - internal
 
   # Environment variables to load into the deployment
   env:

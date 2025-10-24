@@ -5,18 +5,18 @@ RUN addgroup -g 2000 appgroup && \
     adduser -u 2000 -G appgroup -h /home/appuser -D appuser
  
 # add the necessary libraries
-RUN apk add --no-cache gcc python3-dev musl-dev linux-headers
+RUN apk add --no-cache gcc python3-dev musl-dev linux-headers git ca-certificates && update-ca-certificates
 
 # initialise uv
 COPY pyproject.toml .
 RUN uv sync
 
 # copy the software
-COPY ./health_ping.py .
+COPY ./*.py .
 
 # update PATH environment variable
 ENV PATH=/home/appuser/.local:$PATH
 
 USER 2000
 
-CMD [ "uv", "run", "python", "-u", "health_ping.py" ]
+CMD [ "uv", "run", "python", "-u", "main.py" ]
