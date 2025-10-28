@@ -2,8 +2,8 @@ name: Pipeline [test -> build -> deploy]
 
 on:
   push:
-    branches:
-      - '**'
+    branches-ignore:
+      - 'dependabot/**'
   workflow_dispatch:
     inputs:
       additional_docker_tag:
