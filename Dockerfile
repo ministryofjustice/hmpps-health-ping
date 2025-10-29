@@ -17,6 +17,8 @@ COPY ./*.py .
 # update PATH environment variable
 ENV PATH=/home/appuser/.local:$PATH
 
+RUN chown -R 2000:2000 /app
+
 USER 2000
 
 CMD [ "uv", "run", "python", "-u", "main.py" ]
