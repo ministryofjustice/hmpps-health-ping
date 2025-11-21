@@ -8,3 +8,11 @@ updates:
     directory: "/"  # Location of workflow files
     schedule:
       interval: "weekly"
+  - package-ecosystem: "helm"
+    directory: "/helm_deploy/hmpps-health-ping"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
