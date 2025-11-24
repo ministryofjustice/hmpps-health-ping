@@ -1,6 +1,7 @@
 FROM ghcr.io/ministryofjustice/hmpps-python:python3.13-alpine AS base
  
 # add the necessary libraries
+USER root
 RUN apk add --no-cache gcc python3-dev musl-dev linux-headers git ca-certificates && update-ca-certificates
 
 # initialise uv
