@@ -10,8 +10,4 @@ RUN uv sync
 # copy the software
 COPY ./*.py .
 
-RUN chown -R 2000:2000 /app
-
-USER 2000
-
 CMD [ "uv", "run", "python", "-u", "main.py" ]
