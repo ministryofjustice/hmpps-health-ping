@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "hmpps-python-lib",
-    "psutil>=7.0.0",
     "redis==7.0.1",
 ]
 
