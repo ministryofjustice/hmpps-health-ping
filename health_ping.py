@@ -2,7 +2,6 @@
 """Health ping - fetches all /health and /info endpoints and stores the results in Redis"""
 
 from datetime import datetime, timezone
-import psutil
 import os
 import threading
 import requests
@@ -28,8 +27,6 @@ endpoints_list = [('health_path', 'health'), ('info_path', 'info')]
 class HealthPing:
   def __init__(self, services):
     self.services = services
-    self.process = psutil.Process(os.getpid())
-
   def _get_build_image_tag(self, output):
     version = ''
     version_locations = (
@@ -191,7 +188,6 @@ class HealthPing:
 
   def _process_env(self, c_name, component, env_id, env, endpoints_list, services):
     log_info(f'Processing {env.get("name")}')
-    log_debug(f'Memory usage: {self.process.memory_info().rss / 1024**2} MB')
 
     # variables to store just once for all attributes
     app_version = None
@@ -296,7 +292,7 @@ class HealthPing:
 
     while True:
       log_info(
-        f'Starting a new run. Current memory usage: {self.process.memory_info().rss / 1024**2} MB'
+        f'Starting a new run.'
       )
       components = self.services.sc.get_all_records(self.services.sc.components_get)
       for component in components:
@@ -330,7 +326,7 @@ class HealthPing:
       for thread in main_threads:
         thread.join()
       log_info(
-        f'Completed all threads. Sleeping for {refresh_interval} seconds. Current memory usage: {self.process.memory_info().rss / 1024**2} MB.'
+        f'Completed all threads. Sleeping for {refresh_interval} seconds.'
       )
       # Even if job had errors , error will be recorded in SC and job will be marked successful
       # as few services are expected to fail.
