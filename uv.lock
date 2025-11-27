@@ -240,14 +240,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "hmpps-sre-python-lib", url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.9/hmpps_sre_python_lib-0.1.9-py3-none-any.whl" },
+    { name = "hmpps-sre-python-lib", url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.10/hmpps_sre_python_lib-0.1.10-py3-none-any.whl" },
     { name = "redis", specifier = "==7.1.0" },
 ]
 
 [[package]]
 name = "hmpps-sre-python-lib"
-version = "0.1.9"
-source = { url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.9/hmpps_sre_python_lib-0.1.9-py3-none-any.whl" }
+version = "0.1.10"
+source = { url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.10/hmpps_sre_python_lib-0.1.10-py3-none-any.whl" }
 dependencies = [
     { name = "flask" },
     { name = "gitpython" },
@@ -257,7 +257,7 @@ dependencies = [
     { name = "slack-sdk" },
 ]
 wheels = [
-    { url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.9/hmpps_sre_python_lib-0.1.9-py3-none-any.whl", hash = "sha256:c61f7d7df72e76ddf2989404e9f0dbaccdb6e92f8a55293f6749306a5fbe8b3b" },
+    { url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.10/hmpps_sre_python_lib-0.1.10-py3-none-any.whl", hash = "sha256:635e8bcb738fcce764d7b6ac621214c767a763a13ece221f3a6bd085ce8137f7" },
 ]
 
 [package.metadata]
