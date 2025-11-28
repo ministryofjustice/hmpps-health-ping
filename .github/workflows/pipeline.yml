@@ -37,8 +37,15 @@ jobs:
     secrets: inherit
     with:
       environment: ${{ matrix.environments }}
+  python_lint:
+    name: python lint
+    uses: ministryofjustice/hmpps-github-actions/.github/workflows/test_python_lint.yml@v2 # WORKFLOW VERSION
+    secrets: inherit
   build:
     name: Build docker image from hmpps-github-actions
+    needs:
+      - helm_lint
+      - python_lint
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/docker_build.yml@v2 # WORKFLOW_VERSION
     with:
       docker_registry: 'ghcr.io'
@@ -50,7 +57,6 @@ jobs:
     name: Deploy to the development environment
     needs:
       - build
-      - helm_lint
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/deploy_env.yml@v2 # WORKFLOW_VERSION
     secrets: inherit
     with:
