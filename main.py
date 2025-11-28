@@ -2,7 +2,9 @@
 """
 HMPPS Health Ping
 
-A Python application that loops through the service catalogue to check health of components
+A Python application that loops through the service catalogue 
+to check health of components and logs the results to a Redis database.
+
 """
 
 import os
