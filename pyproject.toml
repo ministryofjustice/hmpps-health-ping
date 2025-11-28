@@ -5,9 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "hmpps-python-lib",
+    "hmpps-sre-python-lib",
     "redis==7.1.0",
 ]
 
 [tool.uv.sources]
-hmpps-python-lib = { url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.6/hmpps_python_lib-0.1.6-py3-none-any.whl" }
+hmpps-sre-python-lib = { url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.10/hmpps_sre_python_lib-0.1.10-py3-none-any.whl" }

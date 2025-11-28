@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-"""Health ping - fetches all /health and /info endpoints and stores the results in Redis"""
+"""Health ping - fetches all /health and /info endpoints 
+    and stores the results in Redis"""
 
 from datetime import datetime, timezone
 import os
@@ -30,9 +31,12 @@ class HealthPing:
   def _get_build_image_tag(self, output):
     version = ''
     version_locations = (
-      "output['build']['version']",  # all apps should have version here
-      "output['components']['healthInfo']['details']['version']",  # Java/Kotlin springboot apps
-      "output['build']['buildNumber']",  # Node/Typescript apps
+      # all apps should have version here
+      "output['build']['version']",
+      # Java/Kotlin springboot apps
+      "output['components']['healthInfo']['details']['version']",
+      # Node/Typescript apps
+      "output['build']['buildNumber']",
     )
     for loc in version_locations:
       try:
@@ -61,7 +65,8 @@ class HealthPing:
         )
     except Exception as e:
       log_error(
-        f'Error retreiving commits for repo: {github_repo} between {from_sha} and {to_sha} : {e}'
+        f'Error retreiving commits for repo: {github_repo} '
+        f'between {from_sha} and {to_sha} : {e}'
       )
     return comparison
 
@@ -105,7 +110,7 @@ class HealthPing:
         log_info(f'SC active_agencies: {env["active_agencies"]}')
         log_info(f'Existing active_agencies: {active_agencies}')
 
-        # if current active_agencies is empty/None set to empty list to enable comparison.
+        # if current active_agencies is empty/None set to empty list for comparison.
         cur_active_agencies = []
         if env.get('active_agencies'):
           cur_active_agencies = env['active_agencies']
@@ -179,7 +184,8 @@ class HealthPing:
       # Always update the latest version key
       services.redis.json().set('latest:versions', f'$.{version_key}', version_data)
       log_info(
-        f'Updated latest:versions redis key with latest version. {version_key} = {version_data}'
+        f'Updated latest:versions redis key with latest version. '
+        f'{version_key} = {version_data}'
       )
     except Exception as e:
       log_error(f'Failed to update redis versions - {e}')
@@ -217,7 +223,8 @@ class HealthPing:
         if stream_updated_data:
           stream_data.update(stream_updated_data)
 
-        # Try to get app version (HEAT-567 - get app version from build image tag on health or info)
+        # Try to get app version (HEAT-567 - 
+        # get app version from build image tag on health or info)
         env_data = {}
         update_sc = False
         if app_version := self._get_build_image_tag(output):
@@ -229,12 +236,14 @@ class HealthPing:
             env_data.update({'build_image_tag': app_version})
             update_sc = True
             log_info(
-              f'Updating build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
+              f'Updating build_image_tag for component  {c_id} {c_name} - '
+              f'Environment {env_id} {e_name}{env_data}'
             )
             update_version_history = True
           else:
             log_debug(
-              f'No change in build_image_tag for component  {c_id} {c_name} - Environment {env_id} {e_name}'
+              f'No change in build_image_tag for component  {c_id} {c_name} - '
+              f'Environment {env_id} {e_name}'
             )
           # leave the redis processing of the app version to the end of the loop
         else:
@@ -278,7 +287,8 @@ class HealthPing:
     )
     if app_version:
       log_debug(
-        f'app_version:({app_version}) and update_version_history is {update_version_history}'
+        f'app_version:({app_version}) and '
+        f'update_version_history is {update_version_history}'
       )
       github_repo = component.get('github_repo', '')
       self._update_app_version(
@@ -292,7 +302,7 @@ class HealthPing:
 
     while True:
       log_info(
-        f'Starting a new run.'
+        'Starting a new run.'
       )
       components = self.services.sc.get_all_records(self.services.sc.components_get)
       for component in components:
@@ -301,7 +311,8 @@ class HealthPing:
           env_id = env.get('documentId', '')
           if env.get('url') and env.get('monitor'):
             # moving the endpoint_tuple loop inside the process_env
-            # to avoid duplication of build_image_tag if it's present in both health and info
+            # to avoid duplication of build_image_tag 
+            # if it's present in both health and info
             thread = threading.Thread(
               target=self._process_env,
               args=(c_name, component, env_id, env, endpoints_list, self.services),
@@ -311,12 +322,14 @@ class HealthPing:
             # Apply limit on total active threads, avoid github secondary API rate limit
             while threading.active_count() > (max_threads - 1):
               log_info(
-                f'Active Threads={threading.active_count()}, Max Threads={max_threads} - backing off for a few seconds'
+                f'Active Threads={threading.active_count()}, Max Threads={max_threads}'
+                f' - backing off for a few seconds'
               )
               sleep(3)
             thread.start()
             log_info(
-              f'Started thread for {env.get("name")} (active threads: {threading.active_count()})'
+              f'Started thread for {env.get("name")} (active threads: '
+              f'{threading.active_count()})'
             )
           else:
             continue
@@ -328,7 +341,8 @@ class HealthPing:
       log_info(
         f'Completed all threads. Sleeping for {refresh_interval} seconds.'
       )
-      # Even if job had errors , error will be recorded in SC and job will be marked successful
+      # Even if job had errors , error will be recorded in SC 
+      # and job will be marked successful
       # as few services are expected to fail.
       if job.error_messages:
         self.services.sc.update_scheduled_job('Errors')
