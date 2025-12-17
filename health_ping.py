@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-"""Health ping - fetches all /health and /info endpoints 
-    and stores the results in Redis"""
+"""Health ping - fetches all /health and /info endpoints
+and stores the results in Redis"""
 
 from datetime import datetime, timezone
 import os
@@ -28,6 +28,7 @@ endpoints_list = [('health_path', 'health'), ('info_path', 'info')]
 class HealthPing:
   def __init__(self, services):
     self.services = services
+
   def _get_build_image_tag(self, output):
     version = ''
     version_locations = (
@@ -84,6 +85,7 @@ class HealthPing:
         stream_data.update({'json': str(json.dumps(output))})
         # log_info(app_version)
       except Exception as e:
+        # Legitimate error, because Redis is exhibiting a fault
         log_error(
           f'{endpoint}: Unable to update stream_data with json - exception: {e}'
         )
@@ -96,9 +98,9 @@ class HealthPing:
       stream_data.update({'http_s': 0})
       # Log error in stream for easier diagnosis of problems
       stream_data.update({'error': str(e)})
-      log_error(f'Failed to get data from {endpoint} - exception: {e}')
+      log_warning(f'Failed to get data from {endpoint} - exception: {e}')
     except Exception as e:
-      log_error(f'Failed to parse response from {endpoint} - exception: {e}')
+      log_warning(f'Failed to parse response from {endpoint} - exception: {e}')
     return output, stream_data
 
   def _get_active_agencies(self, env, output, endpoint_type):
@@ -120,7 +122,7 @@ class HealthPing:
     except (KeyError, TypeError):
       pass
     except Exception as e:
-      log_error(f'failed to process active_agencies: {e}')
+      log_warning(f'failed to process active_agencies: {e}')
     return active_agencies_dict
 
   def _update_app_version(
@@ -223,7 +225,7 @@ class HealthPing:
         if stream_updated_data:
           stream_data.update(stream_updated_data)
 
-        # Try to get app version (HEAT-567 - 
+        # Try to get app version (HEAT-567 -
         # get app version from build image tag on health or info)
         env_data = {}
         update_sc = False
@@ -301,9 +303,7 @@ class HealthPing:
     main_threads = list()
 
     while True:
-      log_info(
-        'Starting a new run.'
-      )
+      log_info('Starting a new run.')
       components = self.services.sc.get_all_records(self.services.sc.components_get)
       for component in components:
         c_name = component.get('name')
@@ -311,7 +311,7 @@ class HealthPing:
           env_id = env.get('documentId', '')
           if env.get('url') and env.get('monitor'):
             # moving the endpoint_tuple loop inside the process_env
-            # to avoid duplication of build_image_tag 
+            # to avoid duplication of build_image_tag
             # if it's present in both health and info
             thread = threading.Thread(
               target=self._process_env,
@@ -338,10 +338,8 @@ class HealthPing:
       # Allow the threads to finish before sleeping
       for thread in main_threads:
         thread.join()
-      log_info(
-        f'Completed all threads. Sleeping for {refresh_interval} seconds.'
-      )
-      # Even if job had errors , error will be recorded in SC 
+      log_info(f'Completed all threads. Sleeping for {refresh_interval} seconds.')
+      # Even if job had errors , error will be recorded in SC
       # and job will be marked successful
       # as few services are expected to fail.
       if job.error_messages:
