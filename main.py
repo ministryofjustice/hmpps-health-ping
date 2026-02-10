@@ -2,7 +2,7 @@
 """
 HMPPS Health Ping
 
-A Python application that loops through the service catalogue 
+A Python application that loops through the service catalogue
 to check health of components and logs the results to a Redis database.
 
 """
@@ -31,20 +31,30 @@ def setup_logging(level: str = 'INFO') -> None:
 
 
 class Services:
-  def __init__(self, sc_params, gh_params, slack_params, redis_params):
-    self.slack = Slack(slack_params)
-    self.sc = ServiceCatalogue(sc_params)
-    self.gh = GithubSession(gh_params)
-    self.redis_max_stream_length = redis_params['redis_max_stream_length']
-    redis_params.pop('redis_max_stream_length')
-    self.redis = self.connect_to_redis(redis_params)
+  def __init__(self):
+    self.slack = Slack()
+    self.sc = ServiceCatalogue()
+    self.gh = GithubSession()
+    self.redis_max_stream_length = int(os.getenv('REDIS_MAX_STREAM_LENGTH', '360'))
+    self.redis = self.connect_to_redis()
 
-  def connect_to_redis(self, redis_params):
+  def connect_to_redis(self):
+    redis_params = {
+      'host': os.getenv('REDIS_ENDPOINT', ''),
+      'port': os.getenv('REDIS_PORT', ''),
+      'ssl': os.getenv('REDIS_TLS_ENABLED', 'False').lower()
+      in (
+        'true',
+        '1',
+        't',
+      ),
+      'password': os.getenv('REDIS_TOKEN', ''),
+      'ssl_cert_reqs': None,
+      'decode_responses': True,
+    }
+
     # Test connection to redis
     try:
-      redis_params['ssl_cert_reqs'] = None
-      redis_params['decode_responses'] = True
-
       redis_session = redis.Redis(**redis_params)
       redis_session.ping()
       log_info('Successfully connected to redis.')
@@ -74,40 +84,7 @@ def main():
 
   job.name = 'hmpps-health-ping'
 
-  # Set up slack notification params
-  slack_params = {
-    'token': os.getenv('SLACK_BOT_TOKEN'),
-    'notify_channel': os.getenv('SLACK_NOTIFY_CHANNEL', ''),
-    'alert_channel': os.getenv('SLACK_ALERT_CHANNEL', ''),
-  }
-
-  # Github parameters
-  gh_params = {
-    'app_id': int(os.getenv('GITHUB_APP_ID', '0')),
-    'app_installation_id': int(os.getenv('GITHUB_APP_INSTALLATION_ID', '0')),
-    'app_private_key': os.getenv('GITHUB_APP_PRIVATE_KEY', ''),
-  }
-
-  sc_params = {
-    'url': os.getenv('SERVICE_CATALOGUE_API_ENDPOINT', ''),
-    'key': os.getenv('SERVICE_CATALOGUE_API_KEY', ''),
-    'filter': os.getenv('SC_FILTER', ''),
-  }
-
-  redis_params = {
-    'host': os.getenv('REDIS_ENDPOINT'),
-    'port': os.getenv('REDIS_PORT'),
-    'ssl': os.getenv('REDIS_TLS_ENABLED', 'False').lower()
-    in (
-      'true',
-      '1',
-      't',
-    ),
-    'password': os.getenv('REDIS_TOKEN', ''),
-    'redis_max_stream_length': int(os.getenv('REDIS_MAX_STREAM_LENGTH', '360')),
-  }
-
-  services = Services(sc_params, gh_params, slack_params, redis_params)
+  services = Services()
 
   logger = logging.getLogger(__name__)
   logger.info('Starting HMPPS Health Ping')
