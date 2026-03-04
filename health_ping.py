@@ -324,8 +324,8 @@ class HealthPing:
               worker_limit = max(1, max_threads)
               while (threading.active_count() - 1) >= worker_limit:
                 log_info(
-                  f'Active Threads={threading.active_count()}, Max Threads={worker_limit}'
-                  f' - backing off for a few seconds'
+                  f'Active Threads={threading.active_count()}, '
+                  f'Max Threads={worker_limit} - backing off for a few seconds'
                 )
                 sleep(3)
               thread.start()
@@ -352,8 +352,8 @@ class HealthPing:
           if stuck_threads > 1:
             try:
               self.services.slack.alert(
-                f'*{job.name} encountered stuck threads *: {stuck_threads} worker thread(s) '
-                f'still running after 30s timeout.'
+                f'*{job.name} encountered stuck threads *: '
+                f'{stuck_threads} worker thread(s) still running after 30s timeout.'
               )
             except Exception as e:
               log_error(f'Unable to send Slack alert for stuck threads. {e}')
