@@ -300,57 +300,80 @@ class HealthPing:
       log_debug('no app version')
 
   def start_health_ping(self):
-    main_threads = list()
-
     while True:
+      main_threads = list()
       log_info('Starting a new run.')
-      components = self.services.sc.get_all_records(self.services.sc.components_get)
-      for component in components:
-        c_name = component.get('name')
-        for env in component.get('envs', []):
-          env_id = env.get('documentId', '')
-          if env.get('url') and env.get('monitor'):
-            # moving the endpoint_tuple loop inside the process_env
-            # to avoid duplication of build_image_tag
-            # if it's present in both health and info
-            thread = threading.Thread(
-              target=self._process_env,
-              args=(c_name, component, env_id, env, endpoints_list, self.services),
-              daemon=True,
-            )
-            main_threads.append(thread)
-            # Apply limit on total active threads, avoid github secondary API rate limit
-            while threading.active_count() > (max_threads - 1):
-              log_info(
-                f'Active Threads={threading.active_count()}, Max Threads={max_threads}'
-                f' - backing off for a few seconds'
+      try:
+        components = self.services.sc.get_all_records(self.services.sc.components_get)
+        for component in components:
+          c_name = component.get('name')
+          for env in component.get('envs', []):
+            env_id = env.get('documentId', '')
+            if env.get('url') and env.get('monitor'):
+              # moving the endpoint_tuple loop inside the process_env
+              # to avoid duplication of build_image_tag
+              # if it's present in both health and info
+              thread = threading.Thread(
+                target=self._process_env,
+                args=(c_name, component, env_id, env, endpoints_list, self.services),
+                daemon=True,
               )
-              sleep(3)
-            thread.start()
-            log_info(
-              f'Started thread for {env.get("name")} (active threads: '
-              f'{threading.active_count()})'
-            )
-          else:
-            continue
-        log_debug(f'Active threads: {threading.active_count()}')
+              main_threads.append(thread)
+              # Apply limit on worker threads only (excluding main thread)
+              # to avoid github secondary API rate limit.
+              worker_limit = max(1, max_threads)
+              while (threading.active_count() - 1) >= worker_limit:
+                log_info(
+                  f'Active Threads={threading.active_count()}, Max Threads={worker_limit}'
+                  f' - backing off for a few seconds'
+                )
+                sleep(3)
+              thread.start()
+              log_info(
+                f'Started thread for {env.get("name")} (active threads: '
+                f'{threading.active_count()})'
+              )
+            else:
+              continue
+          log_debug(f'Active threads: {threading.active_count()}')
 
-      # Allow the threads to finish before sleeping
-      for thread in main_threads:
-        thread.join()
-      log_info(f'Completed all threads. Sleeping for {refresh_interval} seconds.')
-      # Even if job had errors , error will be recorded in SC
-      # and job will be marked successful
-      # as few services are expected to fail.
-      if job.error_messages:
+        # Allow the threads to finish before sleeping
+        stuck_threads = 0
+        for thread in main_threads:
+          thread.join(timeout=30)
+          if thread.is_alive():
+            stuck_threads += 1
+            log_warning('A worker thread is still running after 30s timeout.')
+        if stuck_threads > 0:
+          log_warning(
+            f'{stuck_threads} worker thread(s) still running before sleep '
+            f'(started this run: {len(main_threads)})'
+          )
+          if stuck_threads > 1:
+            try:
+              self.services.slack.alert(
+                f'*{job.name} encountered stuck threads *: {stuck_threads} worker thread(s) '
+                f'still running after 30s timeout.'
+              )
+            except Exception as e:
+              log_error(f'Unable to send Slack alert for stuck threads. {e}')
+        else:
+          log_info('No stuck worker threads before sleep.')
+        log_info(f'Completed all threads. Sleeping for {refresh_interval} seconds.')
+        # Even if job had errors , error will be recorded in SC
+        # and job will be marked successful
+        # as few services are expected to fail.
+        if job.error_messages:
+          self.services.sc.update_scheduled_job('Errors')
+          log_info(f'{job.name} job completed with errors.')
+        else:
+          self.services.sc.update_scheduled_job('Succeeded')
+          log_info(f'{job.name} job completed successfully.')
+      except Exception as e:
+        log_error(f'Unexpected error in health ping loop: {e}')
         self.services.sc.update_scheduled_job('Errors')
-        log_info(f'{job.name} job completed with errors.')
-      else:
-        self.services.sc.update_scheduled_job('Succeeded')
-        log_info(f'{job.name} job completed successfully.')
-
-      # Clear the main threads list and error messages for the next run
-      main_threads.clear()
-      job.error_messages.clear()
-      log_info(f'Sleeping for {refresh_interval} seconds...')
-      sleep(refresh_interval)
+      finally:
+        # Clear error messages for the next run
+        job.error_messages.clear()
+        log_info(f'Sleeping for {refresh_interval} seconds...')
+        sleep(refresh_interval)
