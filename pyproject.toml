@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "hmpps-sre-python-lib",
-    "redis==7.2.1",
+    "redis==7.3.0",
 ]
 
 [tool.uv.sources]
