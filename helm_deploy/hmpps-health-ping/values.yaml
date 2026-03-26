@@ -62,6 +62,7 @@ generic-service:
       GITHUB_APP_ID: "GITHUB_APP_ID"
       GITHUB_APP_INSTALLATION_ID: "GITHUB_APP_INSTALLATION_ID"
       GITHUB_APP_PRIVATE_KEY: "GITHUB_APP_PRIVATE_KEY"
+    hmpps-sre-app-slack-bot:
       SLACK_BOT_TOKEN: "SLACK_BOT_TOKEN"
     elasticache-redis:
       REDIS_ENDPOINT: "primary_endpoint_address"
