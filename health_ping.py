@@ -306,36 +306,37 @@ class HealthPing:
       try:
         components = self.services.sc.get_all_records(self.services.sc.components_get)
         for component in components:
-          c_name = component.get('name')
-          for env in component.get('envs', []):
-            env_id = env.get('documentId', '')
-            if env.get('url') and env.get('monitor'):
-              # moving the endpoint_tuple loop inside the process_env
-              # to avoid duplication of build_image_tag
-              # if it's present in both health and info
-              thread = threading.Thread(
-                target=self._process_env,
-                args=(c_name, component, env_id, env, endpoints_list, self.services),
-                daemon=True,
-              )
-              main_threads.append(thread)
-              # Apply limit on worker threads only (excluding main thread)
-              # to avoid github secondary API rate limit.
-              worker_limit = max(1, max_threads)
-              while (threading.active_count() - 1) >= worker_limit:
-                log_info(
-                  f'Active Threads={threading.active_count()}, '
-                  f'Max Threads={worker_limit} - backing off for a few seconds'
+          if not component.get('archived'):
+            c_name = component.get('name')
+            for env in component.get('envs', []):
+              env_id = env.get('documentId', '')
+              if env.get('url') and env.get('monitor'):
+                # moving the endpoint_tuple loop inside the process_env
+                # to avoid duplication of build_image_tag
+                # if it's present in both health and info
+                thread = threading.Thread(
+                  target=self._process_env,
+                  args=(c_name, component, env_id, env, endpoints_list, self.services),
+                  daemon=True,
                 )
-                sleep(3)
-              thread.start()
-              log_info(
-                f'Started thread for {env.get("name")} (active threads: '
-                f'{threading.active_count()})'
-              )
-            else:
-              continue
-          log_debug(f'Active threads: {threading.active_count()}')
+                main_threads.append(thread)
+                # Apply limit on worker threads only (excluding main thread)
+                # to avoid github secondary API rate limit.
+                worker_limit = max(1, max_threads)
+                while (threading.active_count() - 1) >= worker_limit:
+                  log_info(
+                    f'Active Threads={threading.active_count()}, '
+                    f'Max Threads={worker_limit} - backing off for a few seconds'
+                  )
+                  sleep(3)
+                thread.start()
+                log_info(
+                  f'Started thread for {env.get("name")} (active threads: '
+                  f'{threading.active_count()})'
+                )
+              else:
+                continue
+            log_debug(f'Active threads: {threading.active_count()}')
 
         # Allow the threads to finish before sleeping
         stuck_threads = 0
