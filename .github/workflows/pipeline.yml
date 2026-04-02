@@ -41,11 +41,18 @@ jobs:
     name: python lint
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/test_python_lint.yml@v2 # WORKFLOW VERSION
     secrets: inherit
+  slsa:
+    name: SLSA Supply Chain Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: SLSA Supply Chain Security
+        uses: ministryofjustice/devsecops-actions/sca/slsa@559ec2408860d9237cc472a5710e61c1c2187ffa
   build:
     name: Build docker image from hmpps-github-actions
     needs:
       - helm_lint
       - python_lint
+      - slsa
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/docker_build.yml@v2 # WORKFLOW_VERSION
     with:
       docker_registry: 'ghcr.io'
