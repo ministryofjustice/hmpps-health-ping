@@ -55,7 +55,7 @@ class Services:
 
     # Test connection to redis
     try:
-      log_info('Connecting to redis...')
+      log_info(f'Connecting to redis at {redis_params.get("host")}...')
       redis_session = redis.Redis(**redis_params)
       redis_session.ping()
       log_info('Successfully connected to redis.')

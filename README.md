@@ -78,26 +78,38 @@ JSON.GET latest:versions $.version:hmpps-digital-prison-reporting-mi:prod
 ```
 
 
-# How to run locally
+## How to run locally
 
-- Ensure python is installed: `brew install python`
-- Create local env: `python3 -m venv .python`
-- Ensure all dependencies are installed: `.python/bin/pip install -r requirements.txt`  
-- Copy and create .env file: `cp .env.example .env`
+### Required environment variables
+- `REDIS_ENDPOINT` = localhost # unless you're connecting to a remote Redis instance
+- `REDIS_PORT` = 6379
+- `REDIS_TLS_ENABLED` = true
+- `REDIS_TOKEN` = # get it from environment secrets for cloud platform hosted Redis
+                  # - not required if you're running Redis locally
+
+### Install tools
+- Install python (if it's not already installed): `brew install python`
+- Install `uv`: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+
+### Create / connect to a Redis instance 
 - Either use a local redis by: `docker compose up -d`
 - Or port-forward to redis in the dev environment via kubectl:
 ```sh
 kubectl -n hmpps-portfolio-management-dev port-forward port-forward-pod 6379:6379
 ```
 
-Run: `export $(cat .env) &&  .python/bin/python health_ping.py`
+Run: `export $(cat .env) && uv run python main.py`
 
-## How to connect to Redis locally
 
-You will need the *AUTH* token to authenticate to the Redis instance. 
+## How to connect to a remote Redis instance locally
+
+If you need to verify the values stored in the Redis database, this is how to do it.
+
+You'll need an *AUTH* token to authenticate to the Redis instance. 
 
 - Install redis-cli: `brew install redis`
-- Create a port forward pod to the development redis instance (check to see if there's already one using `kubectl get pods -n hmpps-portfolio-management-dev`)
+- Create a port forward pod to the development redis instance (unless there's already one running - check to see using `kubectl get pods -n hmpps-portfolio-management-dev`)
 
 >```bash
 kubectl \
@@ -129,3 +141,10 @@ kubectl \
 > ```redis
 > AUTH _PASTE_THE_TOKEN_HERE_
 > ```
+
+- Check the top level keys
+> ```redis
+> SCAN 0
+> ```
+
+This obviously works on a local redis instance too, although you don't need to authenticate with a token.
