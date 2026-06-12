@@ -194,8 +194,8 @@ class HealthPing:
 
     log_debug(f'Completed update_app_version for {c_name}-{e_name}')
 
-  def _process_env(self, c_name, component, env_id, env, endpoints_list, services):
-    log_info(f'Processing {env.get("name")}')
+  def _process_env(self, c_name, component, env_id, env, services):
+    log_info(f'Processing {component.get("name")} {env.get("name")}')
 
     # variables to store just once for all attributes
     app_version = None
@@ -250,7 +250,8 @@ class HealthPing:
           # leave the redis processing of the app version to the end of the loop
         else:
           log_info(
-            f'No app_version data in {endpoint_tuple[1]} endpoint for {env.get("name")}'
+            f'No app_version data in {endpoint_tuple[1]} endpoint '
+            f'for {c_name} {env.get("name")}'
           )
 
         # Try to get active agencies
@@ -316,7 +317,7 @@ class HealthPing:
                 # if it's present in both health and info
                 thread = threading.Thread(
                   target=self._process_env,
-                  args=(c_name, component, env_id, env, endpoints_list, self.services),
+                  args=(c_name, component, env_id, env, self.services),
                   daemon=True,
                 )
                 main_threads.append(thread)
@@ -331,7 +332,7 @@ class HealthPing:
                   sleep(3)
                 thread.start()
                 log_info(
-                  f'Started thread for {env.get("name")} (active threads: '
+                  f'Started thread for {c_name} {env.get("name")} (active threads: '
                   f'{threading.active_count()})'
                 )
               else:
