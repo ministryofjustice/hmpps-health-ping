@@ -229,25 +229,30 @@ class HealthPing:
         # get app version from build image tag on health or info)
         env_data = {}
         update_sc = False
-        if app_version := self._get_build_image_tag(output):
-          log_debug(f'Found app version: {c_name}:{e_name}:{app_version}')
-          image_tag = []
-          image_tag = env.get('build_image_tag', '')
-          log_debug((f'existing build_image_tag: {image_tag}'))
-          if app_version and app_version != image_tag:
+        if output_app_version := self._get_build_image_tag(output):
+          # Only update app_version if an valid image tag is returned
+          app_version = output_app_version
+          log_debug(
+            f'Found app version: {c_name}:{e_name}:{app_version} in {endpoint_type}'
+          )
+
+          # update the build image tag in the environment data if it's different
+          current_image_tag = env.get('build_image_tag', '')
+          log_debug((f'existing build_image_tag: {current_image_tag}'))
+          if app_version != current_image_tag:
             env_data.update({'build_image_tag': app_version})
             update_sc = True
             log_info(
-              f'Updating build_image_tag for component  {c_id} {c_name} - '
-              f'Environment {env_id} {e_name}{env_data}'
+              f'Updating Service Catalogue build_image_tag for component '
+              f'{c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
             )
             update_version_history = True
           else:
             log_debug(
-              f'No change in build_image_tag for component  {c_id} {c_name} - '
-              f'Environment {env_id} {e_name}'
+              f'No change in service catalogue build_image_tag for component {c_id} '
+              f'{c_name} - Environment {env_id} {e_name}'
             )
-          # leave the redis processing of the app version to the end of the loop
+        # No app_version data found in this endpoint
         else:
           log_info(
             f'No app_version data in {endpoint_tuple[1]} endpoint '
