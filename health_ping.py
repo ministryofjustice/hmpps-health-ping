@@ -250,7 +250,8 @@ class HealthPing:
           # leave the redis processing of the app version to the end of the loop
         else:
           log_info(
-            f'No app_version data in {endpoint_tuple[1]} endpoint for {c_name} {env.get("name")}'
+            f'No app_version data in {endpoint_tuple[1]} endpoint '
+            f'for {c_name} {env.get("name")}'
           )
 
         # Try to get active agencies
