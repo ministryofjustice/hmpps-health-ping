@@ -14,6 +14,10 @@ updates:
     directory: "/helm_deploy/hmpps-health-ping"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-patch"
   - package-ecosystem: "docker"
     cooldown:
       default-days: 7
