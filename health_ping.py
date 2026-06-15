@@ -2,6 +2,7 @@
 """Health ping - fetches all /health and /info endpoints
 and stores the results in Redis"""
 
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 import os
 import threading
@@ -28,6 +29,11 @@ endpoints_list = [('health_path', 'health'), ('info_path', 'info')]
 class HealthPing:
   def __init__(self, services):
     self.services = services
+    self.worker_limit = max(1, max_threads)
+    self.executor = ThreadPoolExecutor(
+      max_workers=self.worker_limit,
+      thread_name_prefix='health-ping',
+    )
 
   def _get_build_image_tag(self, output):
     version = ''
@@ -229,25 +235,30 @@ class HealthPing:
         # get app version from build image tag on health or info)
         env_data = {}
         update_sc = False
-        if app_version := self._get_build_image_tag(output):
-          log_debug(f'Found app version: {c_name}:{e_name}:{app_version}')
-          image_tag = []
-          image_tag = env.get('build_image_tag', '')
-          log_debug((f'existing build_image_tag: {image_tag}'))
-          if app_version and app_version != image_tag:
+        if output_app_version := self._get_build_image_tag(output):
+          # Only update app_version if an valid image tag is returned
+          app_version = output_app_version
+          log_debug(
+            f'Found app version: {c_name}:{e_name}:{app_version} in {endpoint_type}'
+          )
+
+          # update the build image tag in the environment data if it's different
+          current_image_tag = env.get('build_image_tag', '')
+          log_debug((f'existing build_image_tag: {current_image_tag}'))
+          if app_version != current_image_tag:
             env_data.update({'build_image_tag': app_version})
             update_sc = True
             log_info(
-              f'Updating build_image_tag for component  {c_id} {c_name} - '
-              f'Environment {env_id} {e_name}{env_data}'
+              f'Updating Service Catalogue build_image_tag for component '
+              f'{c_id} {c_name} - Environment {env_id} {e_name}{env_data}'
             )
             update_version_history = True
           else:
             log_debug(
-              f'No change in build_image_tag for component  {c_id} {c_name} - '
-              f'Environment {env_id} {e_name}'
+              f'No change in service catalogue build_image_tag for component {c_id} '
+              f'{c_name} - Environment {env_id} {e_name}'
             )
-          # leave the redis processing of the app version to the end of the loop
+        # No app_version data found in this endpoint
         else:
           log_info(
             f'No app_version data in {endpoint_tuple[1]} endpoint '
@@ -300,77 +311,97 @@ class HealthPing:
     else:
       log_debug('no app version')
 
+  def _get_components(self):
+    return self.services.sc.get_all_records(
+      f'{self.services.sc.components_get}&filters[archived][$eq]=false'
+    )
+
+  def _iter_monitored_envs(self, components):
+    for component in components:
+      c_name = component.get('name')
+      for env in component.get('envs', []):
+        if env.get('url') and env.get('monitor'):
+          yield c_name, component, env.get('documentId', ''), env
+      log_debug(f'Active threads: {threading.active_count()}')
+
+  def _submit_env_jobs(self, components):
+    futures = []
+    for c_name, component, env_id, env in self._iter_monitored_envs(components):
+      future = self.executor.submit(
+        self._process_env,
+        c_name,
+        component,
+        env_id,
+        env,
+        self.services,
+      )
+      futures.append(future)
+      log_info(
+        f'Submitted task for {c_name} {env.get("name")} '
+        f'(active threads: {threading.active_count()})'
+      )
+    return futures
+
+  def _wait_for_futures(self, futures, timeout=30):
+    if not futures:
+      return 0
+
+    done, not_done = wait(futures, timeout=timeout)
+
+    for future in done:
+      try:
+        future.result()
+      except Exception as e:
+        log_error(f'Worker task failed: {e}')
+
+    for _ in not_done:
+      log_warning('A worker thread is still running after 30s timeout.')
+
+    return len(not_done)
+
+  # Deal with any stuck threads (send a Slack message)
+  def _handle_stuck_threads(self, stuck_threads, total_threads):
+    if stuck_threads > 0:
+      log_warning(
+        f'{stuck_threads} worker thread(s) still running before sleep '
+        f'(started this run: {total_threads})'
+      )
+      if stuck_threads > 1:
+        try:
+          self.services.slack.alert(
+            f'*{job.name} encountered stuck threads *: '
+            f'{stuck_threads} worker thread(s) still running after 30s timeout.'
+          )
+        except Exception as e:
+          log_error(f'Unable to send Slack alert for stuck threads. {e}')
+    else:
+      log_info('No stuck worker threads before sleep.')
+
+  def _update_job_result(self):
+    # Even if job had errors , error will be recorded in SC
+    # and job will be marked successful
+    # as few services are expected to fail.
+    if job.error_messages:
+      self.services.sc.update_scheduled_job('Errors')
+      log_info(f'{job.name} job completed with errors.')
+    else:
+      self.services.sc.update_scheduled_job('Succeeded')
+      log_info(f'{job.name} job completed successfully.')
+
+  # Main health ping threads dispatcher
+  def _run_health_ping_once(self):
+    components = self._get_components()
+    futures = self._submit_env_jobs(components)
+    stuck_threads = self._wait_for_futures(futures)
+    self._handle_stuck_threads(stuck_threads, len(futures))
+    log_info(f'Completed all threads. Sleeping for {refresh_interval} seconds.')
+    self._update_job_result()
+
   def start_health_ping(self):
     while True:
-      main_threads = list()
       log_info('Starting a new run.')
       try:
-        components = self.services.sc.get_all_records(self.services.sc.components_get)
-        for component in components:
-          if not component.get('archived'):
-            c_name = component.get('name')
-            for env in component.get('envs', []):
-              env_id = env.get('documentId', '')
-              if env.get('url') and env.get('monitor'):
-                # moving the endpoint_tuple loop inside the process_env
-                # to avoid duplication of build_image_tag
-                # if it's present in both health and info
-                thread = threading.Thread(
-                  target=self._process_env,
-                  args=(c_name, component, env_id, env, self.services),
-                  daemon=True,
-                )
-                main_threads.append(thread)
-                # Apply limit on worker threads only (excluding main thread)
-                # to avoid github secondary API rate limit.
-                worker_limit = max(1, max_threads)
-                while (threading.active_count() - 1) >= worker_limit:
-                  log_info(
-                    f'Active Threads={threading.active_count()}, '
-                    f'Max Threads={worker_limit} - backing off for a few seconds'
-                  )
-                  sleep(3)
-                thread.start()
-                log_info(
-                  f'Started thread for {c_name} {env.get("name")} (active threads: '
-                  f'{threading.active_count()})'
-                )
-              else:
-                continue
-            log_debug(f'Active threads: {threading.active_count()}')
-
-        # Allow the threads to finish before sleeping
-        stuck_threads = 0
-        for thread in main_threads:
-          thread.join(timeout=30)
-          if thread.is_alive():
-            stuck_threads += 1
-            log_warning('A worker thread is still running after 30s timeout.')
-        if stuck_threads > 0:
-          log_warning(
-            f'{stuck_threads} worker thread(s) still running before sleep '
-            f'(started this run: {len(main_threads)})'
-          )
-          if stuck_threads > 1:
-            try:
-              self.services.slack.alert(
-                f'*{job.name} encountered stuck threads *: '
-                f'{stuck_threads} worker thread(s) still running after 30s timeout.'
-              )
-            except Exception as e:
-              log_error(f'Unable to send Slack alert for stuck threads. {e}')
-        else:
-          log_info('No stuck worker threads before sleep.')
-        log_info(f'Completed all threads. Sleeping for {refresh_interval} seconds.')
-        # Even if job had errors , error will be recorded in SC
-        # and job will be marked successful
-        # as few services are expected to fail.
-        if job.error_messages:
-          self.services.sc.update_scheduled_job('Errors')
-          log_info(f'{job.name} job completed with errors.')
-        else:
-          self.services.sc.update_scheduled_job('Succeeded')
-          log_info(f'{job.name} job completed successfully.')
+        self._run_health_ping_once()
       except Exception as e:
         log_error(f'Unexpected error in health ping loop: {e}')
         self.services.sc.update_scheduled_job('Errors')
