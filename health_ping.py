@@ -205,7 +205,9 @@ class HealthPing:
                   previous_deployed_version = versions_history[
                     previous_deployed_version_key
                   ][1]['v']
-                  previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
+                  previous_deployed_version_sha = (
+                    previous_deployed_version.split('.')[-1]
+                  )
             else:
               should_add_first_history_entry = True
           finally:
