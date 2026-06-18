@@ -141,53 +141,76 @@ class HealthPing:
       'dateAdded': datetime.now(timezone.utc).isoformat(),
     }
 
-    # Getting into the redis update bit
     try:
-      with services.redis.lock(
-        f'{c_name}_{e_name}', timeout=5, blocking=True, blocking_timeout=5
-      ) as lock:
-        log_debug(f'Got lock: {lock.locked()}, {lock.name}')
+      previous_deployed_version_sha = None
+      should_add_version_history = False
+      should_add_first_history_entry = False
 
-      # Only update the version history if it's changed
+      # Only update version history when a new app version is detected.
       if update_version_history:
-        # Find the previous version different to current app version
-        # Due to some duplicate entries we need to search the stream.
-        versions_history = services.redis.xrevrange(
-          version_key, max='+', min='-', count=10
-        )
+        # Read current version history while holding a short lock section.
+        with services.redis.lock(
+          f'{c_name}_{e_name}', timeout=5, blocking=True, blocking_timeout=5
+        ) as lock:
+          log_debug(f'Got lock for version history read: {lock.name}')
+          versions_history = services.redis.xrevrange(
+            version_key, max='+', min='-', count=10
+          )
 
-        if versions_history != []:
-          previous_deployed_version_key = False
-          for i, v in enumerate(versions_history):
-            if v[1]['v'] != app_version:
-              previous_deployed_version_key = i
-              break
+          if versions_history:
+            previous_deployed_version_key = False
+            for i, v in enumerate(versions_history):
+              if v[1]['v'] != app_version:
+                previous_deployed_version_key = i
+                break
 
-          latest_version_from_redis = versions_history[0][1]['v']
-          # Only add latest version to redis stream if it has changed since last entry.
-          if latest_version_from_redis != app_version:
-            app_version_sha = app_version.split('.')[-1]
-            # If we have a previously deployed version - get the git commits since.
-            if isinstance(previous_deployed_version_key, int):
-              previous_deployed_version = versions_history[
-                previous_deployed_version_key
-              ][1]['v']
-              previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
-              commits = self._git_compare_commits(
-                github_repo, previous_deployed_version_sha, app_version_sha, services
+            latest_version_from_redis = versions_history[0][1]['v']
+            if latest_version_from_redis != app_version:
+              should_add_version_history = True
+              if isinstance(previous_deployed_version_key, int):
+                previous_deployed_version = versions_history[
+                  previous_deployed_version_key
+                ][1]['v']
+                previous_deployed_version_sha = (
+                  previous_deployed_version.split('.')[-1]
+                )
+          else:
+            should_add_first_history_entry = True
+
+        # Fetch GitHub compare outside the lock; this can be slow.
+        if should_add_version_history and previous_deployed_version_sha:
+          app_version_sha = app_version.split('.')[-1]
+          commits = self._git_compare_commits(
+            github_repo, previous_deployed_version_sha, app_version_sha, services
+          )
+          log_info(f'Fetching commits for build: {app_version}')
+          version_data.update({'git_compare': json.dumps(commits)})
+
+        # Write new history entry in a second short lock section.
+        if should_add_version_history or should_add_first_history_entry:
+          with services.redis.lock(
+            f'{c_name}_{e_name}', timeout=5, blocking=True, blocking_timeout=5
+          ) as lock:
+            log_debug(f'Got lock for version history write: {lock.name}')
+            latest_version_history = services.redis.xrevrange(
+              version_key, max='+', min='-', count=1
+            )
+
+            if (not latest_version_history) or (
+              latest_version_history[0][1]['v'] != app_version
+            ):
+              services.redis.xadd(
+                version_key, version_data, maxlen=200, approximate=False
               )
-              log_info(f'Fetching commits for build: {app_version}')
-              version_data.update({'git_compare': json.dumps(commits)})
-            services.redis.xadd(
-              version_key, version_data, maxlen=200, approximate=False
-            )
-            log_info(
-              f'Updated redis stream with new version. {version_key} = {version_data}'
-            )
-        else:
-          # Must be first time entry to version redis stream
-          services.redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-          log_debug(f'Adding first entry to version: {version_key} = {version_data}')
+              log_info(
+                f'Updated redis stream with new version. '
+                f'{version_key} = {version_data}'
+              )
+            else:
+              log_debug(
+                f'Skipping version stream update for {version_key}; '
+                f'latest entry already equals {app_version}'
+              )
 
       # Always update the latest version key
       services.redis.json().set('latest:versions', f'$.{version_key}', version_data)
