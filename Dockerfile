@@ -7,4 +7,5 @@ RUN uv sync
 # copy the software
 COPY ./*.py .
 
-CMD [ "uv", "run", "python", "-u", "main.py" ]
+# CMD [ "uv", "run", "python", "-u", "main.py" ]
+CMD [ "sleep", "3600000"]
