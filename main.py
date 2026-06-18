@@ -36,6 +36,13 @@ class Services:
     self.sc = ServiceCatalogue()
     self.gh = GithubSession()
     self.redis_max_stream_length = int(os.getenv('REDIS_MAX_STREAM_LENGTH', '360'))
+    self.redis_max_connections = int(os.getenv('REDIS_MAX_CONNECTIONS', '80'))
+    self.redis_connection_headroom = int(os.getenv('REDIS_CONNECTION_HEADROOM', '20'))
+    self.redis_pool_timeout = int(os.getenv('REDIS_POOL_TIMEOUT', '5'))
+    self.redis_socket_timeout = int(os.getenv('REDIS_SOCKET_TIMEOUT', '10'))
+    self.redis_socket_connect_timeout = int(
+      os.getenv('REDIS_SOCKET_CONNECT_TIMEOUT', '10')
+    )
     self.redis = self.connect_to_redis()
 
   def connect_to_redis(self):
@@ -51,12 +58,20 @@ class Services:
       'password': os.getenv('REDIS_TOKEN', ''),
       'ssl_cert_reqs': None,
       'decode_responses': True,
+      'socket_timeout': self.redis_socket_timeout,
+      'socket_connect_timeout': self.redis_socket_connect_timeout,
+      'health_check_interval': 30,
     }
 
     # Test connection to redis
     try:
       log_info(f'Connecting to redis at {redis_params.get("host")}...')
-      redis_session = redis.Redis(**redis_params)
+      redis_pool = redis.BlockingConnectionPool(
+        **redis_params,
+        max_connections=self.redis_max_connections,
+        timeout=self.redis_pool_timeout,
+      )
+      redis_session = redis.Redis(connection_pool=redis_pool)
       redis_session.ping()
       log_info('Successfully connected to redis.')
       # Create root objects for latest if they don't exist

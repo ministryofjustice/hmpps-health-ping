@@ -9,6 +9,7 @@ import threading
 import requests
 import json
 from time import sleep
+from redis.exceptions import LockError
 
 from hmpps.services.job_log_handling import (
   log_debug,
@@ -18,7 +19,6 @@ from hmpps.services.job_log_handling import (
   job,
 )
 
-max_threads = int(os.getenv('MAX_THREADS', '200'))
 refresh_interval = int(os.getenv('REFRESH_INTERVAL', '60'))
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
@@ -29,11 +29,25 @@ endpoints_list = [('health_path', 'health'), ('info_path', 'info')]
 class HealthPing:
   def __init__(self, services):
     self.services = services
-    self.worker_limit = max(1, max_threads)
+    redis_max_connections = max(1, getattr(self.services, 'redis_max_connections', 80))
+    redis_connection_headroom = max(
+      0, getattr(self.services, 'redis_connection_headroom', 20)
+    )
+    self.worker_limit = max(1, redis_max_connections - redis_connection_headroom)
+    self.wait_timeout_per_batch = int(os.getenv('WAIT_TIMEOUT_PER_BATCH', '25'))
     self.executor = ThreadPoolExecutor(
       max_workers=self.worker_limit,
       thread_name_prefix='health-ping',
     )
+    log_info(
+      f'Configured worker pool: {self.worker_limit} '
+      f'(REDIS_MAX_CONNECTIONS={redis_max_connections}, '
+      f'REDIS_CONNECTION_HEADROOM={redis_connection_headroom})'
+    )
+
+  @staticmethod
+  def _is_lock_ownership_error(exc):
+    return "no longer owned" in str(exc).lower()
 
   def _get_build_image_tag(self, output):
     version = ''
@@ -141,53 +155,101 @@ class HealthPing:
       'dateAdded': datetime.now(timezone.utc).isoformat(),
     }
 
-    # Getting into the redis update bit
-    try:
-      with services.redis.lock(
-        f'{c_name}_{e_name}', timeout=5, blocking=True, blocking_timeout=5
-      ) as lock:
-        log_debug(f'Got lock: {lock.locked()}, {lock.name}')
+    lock = services.redis.lock(
+      f'{c_name}_{e_name}', timeout=30, blocking=True, blocking_timeout=10
+    )
 
-      # Only update the version history if it's changed
-      if update_version_history:
-        # Find the previous version different to current app version
-        # Due to some duplicate entries we need to search the stream.
-        versions_history = services.redis.xrevrange(
-          version_key, max='+', min='-', count=10
-        )
-
-        if versions_history != []:
-          previous_deployed_version_key = False
-          for i, v in enumerate(versions_history):
-            if v[1]['v'] != app_version:
-              previous_deployed_version_key = i
-              break
-
-          latest_version_from_redis = versions_history[0][1]['v']
-          # Only add latest version to redis stream if it has changed since last entry.
-          if latest_version_from_redis != app_version:
-            app_version_sha = app_version.split('.')[-1]
-            # If we have a previously deployed version - get the git commits since.
-            if isinstance(previous_deployed_version_key, int):
-              previous_deployed_version = versions_history[
-                previous_deployed_version_key
-              ][1]['v']
-              previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
-              commits = self._git_compare_commits(
-                github_repo, previous_deployed_version_sha, app_version_sha, services
-              )
-              log_info(f'Fetching commits for build: {app_version}')
-              version_data.update({'git_compare': json.dumps(commits)})
-            services.redis.xadd(
-              version_key, version_data, maxlen=200, approximate=False
-            )
-            log_info(
-              f'Updated redis stream with new version. {version_key} = {version_data}'
-            )
+    def _safe_release_lock():
+      try:
+        if lock.owned():
+          lock.release()
+      except LockError as e:
+        log_warning(f'Unable to safely release redis lock for {version_key}: {e}')
+      except Exception as e:
+        if self._is_lock_ownership_error(e):
+          log_warning(
+            f'Redis lock ownership changed while releasing {version_key}: {e}'
+          )
         else:
-          # Must be first time entry to version redis stream
-          services.redis.xadd(version_key, version_data, maxlen=200, approximate=False)
-          log_debug(f'Adding first entry to version: {version_key} = {version_data}')
+          log_warning(f'Unexpected lock release issue for {version_key}: {e}')
+
+    previous_deployed_version_sha = None
+    should_add_version_history = False
+    should_add_first_history_entry = False
+
+    try:
+      # Read current version history in a short locked section.
+      if update_version_history:
+        if not lock.acquire(blocking=True, blocking_timeout=10):
+          log_warning(
+            f'Could not acquire redis lock for {version_key}, skipping history update.'
+          )
+        else:
+          log_debug(f'Got lock for version history read: {lock.name}')
+          try:
+            versions_history = services.redis.xrevrange(
+              version_key, max='+', min='-', count=10
+            )
+
+            if versions_history:
+              previous_deployed_version_key = False
+              for i, v in enumerate(versions_history):
+                if v[1]['v'] != app_version:
+                  previous_deployed_version_key = i
+                  break
+
+              latest_version_from_redis = versions_history[0][1]['v']
+              if latest_version_from_redis != app_version:
+                should_add_version_history = True
+                if isinstance(previous_deployed_version_key, int):
+                  previous_deployed_version = versions_history[
+                    previous_deployed_version_key
+                  ][1]['v']
+                  previous_deployed_version_sha = previous_deployed_version.split('.')[-1]
+            else:
+              should_add_first_history_entry = True
+          finally:
+            _safe_release_lock()
+
+        # Fetch git compare outside the lock; this call can be slow.
+        if should_add_version_history and previous_deployed_version_sha:
+          app_version_sha = app_version.split('.')[-1]
+          commits = self._git_compare_commits(
+            github_repo, previous_deployed_version_sha, app_version_sha, services
+          )
+          log_info(f'Fetching commits for build: {app_version}')
+          version_data.update({'git_compare': json.dumps(commits)})
+
+        # Write history update in a second short locked section.
+        if should_add_version_history or should_add_first_history_entry:
+          if not lock.acquire(blocking=True, blocking_timeout=10):
+            log_warning(
+              f'Could not acquire redis lock for {version_key}, skipping history write.'
+            )
+          else:
+            log_debug(f'Got lock for version history write: {lock.name}')
+            try:
+              latest_version_history = services.redis.xrevrange(
+                version_key, max='+', min='-', count=1
+              )
+
+              if (not latest_version_history) or (
+                latest_version_history[0][1]['v'] != app_version
+              ):
+                services.redis.xadd(
+                  version_key, version_data, maxlen=200, approximate=False
+                )
+                log_info(
+                  f'Updated redis stream with new version. '
+                  f'{version_key} = {version_data}'
+                )
+              else:
+                log_debug(
+                  f'Skipping version stream update for {version_key}; '
+                  f'latest entry already equals {app_version}'
+                )
+            finally:
+              _safe_release_lock()
 
       # Always update the latest version key
       services.redis.json().set('latest:versions', f'$.{version_key}', version_data)
@@ -195,8 +257,17 @@ class HealthPing:
         f'Updated latest:versions redis key with latest version. '
         f'{version_key} = {version_data}'
       )
+    except LockError as e:
+      log_warning(f'Redis lock issue during version update for {version_key}: {e}')
     except Exception as e:
-      log_error(f'Failed to update redis versions - {e}')
+      if self._is_lock_ownership_error(e):
+        log_warning(
+          f'Redis lock ownership changed during version update for {version_key}: {e}'
+        )
+      else:
+        log_error(f'Failed to update redis versions - {e}')
+    finally:
+      _safe_release_lock()
 
     log_debug(f'Completed update_app_version for {c_name}-{e_name}')
 
@@ -287,7 +358,13 @@ class HealthPing:
           )
           log_debug(f'Redis stream updated - {stream_key}: {stream_data}')
         except Exception as e:
-          log_error(f'Unable to add data to redis stream. {e}')
+          if 'too many connections' in str(e).lower():
+            log_warning(
+              f'Redis connection capacity reached while writing {stream_key}: {e}. '
+              'Reduce worker concurrency or increase REDIS_MAX_CONNECTIONS.'
+            )
+          else:
+            log_error(f'Unable to add data to redis stream. {e}')
 
           log_debug(f'Completed process_env for {env.get("name")}:{endpoint_tuple[1]}')
 
@@ -344,9 +421,11 @@ class HealthPing:
 
   def _wait_for_futures(self, futures, timeout=30):
     if not futures:
-      return 0
+      return 0, timeout
 
-    done, not_done = wait(futures, timeout=timeout)
+    batches = (len(futures) + self.worker_limit - 1) // self.worker_limit
+    dynamic_timeout = max(timeout, batches * self.wait_timeout_per_batch)
+    done, not_done = wait(futures, timeout=dynamic_timeout)
 
     for future in done:
       try:
@@ -354,13 +433,25 @@ class HealthPing:
       except Exception as e:
         log_error(f'Worker task failed: {e}')
 
-    for _ in not_done:
-      log_warning('A worker thread is still running after 30s timeout.')
+    still_running = 0
+    cancelled = 0
+    for future in not_done:
+      if future.cancel():
+        cancelled += 1
+      elif future.running():
+        still_running += 1
 
-    return len(not_done)
+    pending = len(not_done) - cancelled - still_running
+    if not_done:
+      log_warning(
+        f'Wait timeout reached after {dynamic_timeout}s: '
+        f'running={still_running}, pending={pending}, cancelled={cancelled}.'
+      )
+
+    return still_running, dynamic_timeout
 
   # Deal with any stuck threads (send a Slack message)
-  def _handle_stuck_threads(self, stuck_threads, total_threads):
+  def _handle_stuck_threads(self, stuck_threads, total_threads, timeout_seconds):
     if stuck_threads > 0:
       log_warning(
         f'{stuck_threads} worker thread(s) still running before sleep '
@@ -370,7 +461,8 @@ class HealthPing:
         try:
           self.services.slack.alert(
             f'*{job.name} encountered stuck threads *: '
-            f'{stuck_threads} worker thread(s) still running after 30s timeout.'
+            f'{stuck_threads} worker thread(s) still running after '
+            f'{timeout_seconds}s timeout.'
           )
         except Exception as e:
           log_error(f'Unable to send Slack alert for stuck threads. {e}')
@@ -392,8 +484,8 @@ class HealthPing:
   def _run_health_ping_once(self):
     components = self._get_components()
     futures = self._submit_env_jobs(components)
-    stuck_threads = self._wait_for_futures(futures)
-    self._handle_stuck_threads(stuck_threads, len(futures))
+    stuck_threads, timeout_seconds = self._wait_for_futures(futures)
+    self._handle_stuck_threads(stuck_threads, len(futures), timeout_seconds)
     log_info(f'Completed all threads. Sleeping for {refresh_interval} seconds.')
     self._update_job_result()
 
