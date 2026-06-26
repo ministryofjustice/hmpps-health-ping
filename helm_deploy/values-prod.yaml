@@ -4,7 +4,7 @@
 generic-service:
   env:
     REFRESH_INTERVAL: "180"
-    REDIS_MAX_STREAM_LENGTH: 1440
+    REDIS_MAX_STREAM_LENGTH: 1080
     LOG_LEVEL: info
 
   ingress:
