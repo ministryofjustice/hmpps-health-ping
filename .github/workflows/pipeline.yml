@@ -39,7 +39,7 @@ jobs:
       environment: ${{ matrix.environments }}
   python_lint:
     name: python lint
-    uses: ministryofjustice/hmpps-github-actions/.github/workflows/test_python_lint.yml@v2 # WORKFLOW VERSION
+    uses: ministryofjustice/hmpps-github-actions/.github/workflows/test_python_lint.yml@e50c9a418c634c627e392ed2e74026c7d5c9702e # WORKFLOW VERSION
     secrets: inherit
   build:
     name: Build docker image from hmpps-github-actions
