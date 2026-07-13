@@ -13,7 +13,7 @@ permissions:
 jobs:
   security-veracode-pipeline-scan:
     name: Project security veracode pipeline scan
-    uses: ministryofjustice/hmpps-github-actions/.github/workflows/security_veracode_pipeline_scan.yml@v2 # WORKFLOW_VERSION 
+    uses: ministryofjustice/hmpps-github-actions/.github/workflows/security_veracode_pipeline_scan.yml@renovate/actions-setup-java-digest # WORKFLOW_VERSION 
     with:
       channel_id: ${{ vars.SECURITY_ALERTS_SLACK_CHANNEL_ID || 'NO_SLACK' }}
       docker_image_app_dir: '/app'
