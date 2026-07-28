@@ -346,36 +346,6 @@ class HealthPing:
       f'{self.services.sc.components_get}&filters[archived][$eq]=false'
     )
 
-  def _expected_redis_stream_keys(self, components):
-    expected_keys = set()
-    for component in components:
-      c_name = component.get('name')
-      for env in component.get('envs', []):
-        e_name = env.get('name')
-        if c_name and e_name and env.get('url') and env.get('monitor'):
-          expected_keys.add(f'health:{c_name}:{e_name}')
-          expected_keys.add(f'info:{c_name}:{e_name}')
-          expected_keys.add(f'version:{c_name}:{e_name}')
-    return expected_keys
-
-  def _cleanup_stale_redis_stream_keys(self, components):
-    expected_keys = self._expected_redis_stream_keys(components)
-    stale_keys = []
-
-    try:
-      for pattern in ('health:*', 'info:*', 'version:*'):
-        for key in self.services.redis.scan_iter(match=pattern, count=500):
-          if key not in expected_keys:
-            stale_keys.append(key)
-
-      if stale_keys:
-        deleted_count = self.services.redis.unlink(*stale_keys)
-        log_info(f'Deleted {deleted_count} stale redis stream key(s).')
-      else:
-        log_debug('No stale redis stream keys found for cleanup.')
-    except Exception as e:
-      log_error(f'Failed to cleanup stale redis stream keys: {e}')
-
   def _iter_monitored_envs(self, components):
     for component in components:
       c_name = component.get('name')
@@ -451,7 +421,6 @@ class HealthPing:
   # Main health ping threads dispatcher
   def _run_health_ping_once(self):
     components = self._get_components()
-    self._cleanup_stale_redis_stream_keys(components)
     futures = self._submit_env_jobs(components)
     stuck_threads = self._wait_for_futures(futures)
     self._handle_stuck_threads(stuck_threads, len(futures))
