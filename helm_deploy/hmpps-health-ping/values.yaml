@@ -20,23 +20,23 @@ generic-service:
   #livenessProbe: null
   #readinessProbe: null
 
-  livenessProbe:
-    httpGet:
-      path: /ping
-      port: 8080
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 1
-    failureThreshold: 5
+  # livenessProbe:
+  #   httpGet:
+  #     path: /ping
+  #     port: 8080
+  #   initialDelaySeconds: 5
+  #   periodSeconds: 10
+  #   timeoutSeconds: 1
+  #   failureThreshold: 5
 
-  readinessProbe:
-    httpGet:
-      path: /ping
-      port: 8080
-    initialDelaySeconds: 10
-    periodSeconds: 5
-    timeoutSeconds: 1
-    failureThreshold: 5
+  # readinessProbe:
+  #   httpGet:
+  #     path: /ping
+  #     port: 8080
+  #   initialDelaySeconds: 10
+  #   periodSeconds: 5
+  #   timeoutSeconds: 1
+  #   failureThreshold: 5
 
   allowlist:
     groups:
