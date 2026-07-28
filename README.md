@@ -17,10 +17,6 @@ info:[component name]:[environment name]
 version:[component name]:[environment name]
 ```
 
-At the start of each run, the app deletes stale `health:*`, `info:*`, and
-`version:*` stream keys that no longer map to a monitored environment in the
-Service Catalogue.
-
 ### health
 The health stream is a direct dump of the output of the URI within the `health` field of the Service Catalogue entry.
 
