@@ -17,10 +17,12 @@ from hmpps.services.job_log_handling import (
   log_warning,
   job,
 )
+from hmpps.utils.utilities import get_request_proxies
 
 max_threads = int(os.getenv('MAX_THREADS', '200'))
 refresh_interval = int(os.getenv('REFRESH_INTERVAL', '60'))
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+request_proxies = get_request_proxies()
 
 # A list of tuples of environment field names mapped to redis field names
 endpoints_list = [('health_path', 'health'), ('info_path', 'info')]
@@ -84,7 +86,12 @@ class HealthPing:
       log_debug(f'making call to: {endpoint}')
       # Override default User-Agent other gets blocked by mod security.
       headers = {'User-Agent': 'hmpps-health-ping'}
-      r = requests.get(endpoint, headers=headers, timeout=10)
+      r = requests.get(
+        endpoint,
+        headers=headers,
+        timeout=10,
+        proxies=request_proxies,
+      )
       output = r.json()
       log_debug(f'Response received: {output}')
       try:
