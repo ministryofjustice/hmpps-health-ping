@@ -17,12 +17,10 @@ from hmpps.services.job_log_handling import (
   log_warning,
   job,
 )
-from hmpps.utils.utilities import get_request_proxies
 
 max_threads = int(os.getenv('MAX_THREADS', '200'))
 refresh_interval = int(os.getenv('REFRESH_INTERVAL', '60'))
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
-request_proxies = get_request_proxies()
 
 # A list of tuples of environment field names mapped to redis field names
 endpoints_list = [('health_path', 'health'), ('info_path', 'info')]
@@ -90,7 +88,6 @@ class HealthPing:
         endpoint,
         headers=headers,
         timeout=10,
-        proxies=request_proxies,
       )
       output = r.json()
       log_debug(f'Response received: {output}')
