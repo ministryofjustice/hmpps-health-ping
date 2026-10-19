@@ -58,7 +58,7 @@ jobs:
     name: Deploy to the development environment
     needs:
       - build
-    uses: ministryofjustice/hmpps-github-actions/.github/workflows/deploy_env.yml@v2 # WORKFLOW_VERSION
+    uses: ministryofjustice/hmpps-github-actions/.github/workflows/deploy_to_env.yml@v2 # WORKFLOW_VERSION
     secrets: inherit
     permissions: 
       contents: read
