@@ -46,10 +46,15 @@ jobs:
     needs:
       - helm_lint
       - python_lint
-    uses: ministryofjustice/hmpps-github-actions/.github/workflows/docker_build.yml@v2 # WORKFLOW_VERSION
+    uses: ministryofjustice/hmpps-github-actions/.github/workflows/docker_build_ecr.yml@v2 # WORKFLOW_VERSION
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    secrets:
+      ECR_ROLE_TO_ASSUME: ${{ secrets.ECR_ROLE_TO_ASSUME }}
     with:
-      docker_registry: 'ghcr.io'
-      registry_org: 'ministryofjustice'
       additional_docker_tag: ${{ inputs.additional_docker_tag }}
       push: ${{ inputs.push || true }}
       generate_sbom: true
@@ -66,7 +71,7 @@ jobs:
     with:
       environment: 'dev'
       app_version: '${{ needs.build.outputs.app_version }}'
-      helm_additional_args: '--set "generic-service.env.SLACK_ALERT_CHANNEL=${{ vars.DEV_SLACK_ALERT_CHANNEL }}" --set "generic-service.env.APP_VERSION=${{ needs.build.outputs.app_version }}" --set "generic-service.env.ENVIRONMENT=dev"'
+      helm_additional_args: '--set "generic-service.env.SLACK_ALERT_CHANNEL=${{ vars.DEV_SLACK_ALERT_CHANNEL }}" --set "generic-service.env.APP_VERSION=${{ needs.build.outputs.app_version }}" --set "generic-service.env.ENVIRONMENT=dev" --set generic-service.image.repository=${{ vars.CLOUD_PLATFORM_ECR_REGISTRY_URL }}/${{ vars.ECR_REPOSITORY }}'
   deploy_prod:
     name: Deploy to production environment
     if: github.ref == 'refs/heads/main'
@@ -81,4 +86,4 @@ jobs:
     with:
       environment: 'prod'
       app_version: '${{ needs.build.outputs.app_version }}'
-      helm_additional_args: '--set "generic-service.env.SLACK_ALERT_CHANNEL=${{ vars.PROD_SLACK_ALERT_CHANNEL }}" --set "generic-service.env.APP_VERSION=${{ needs.build.outputs.app_version }}" --set "generic-service.env.ENVIRONMENT=prod"'
+      helm_additional_args: '--set "generic-service.env.SLACK_ALERT_CHANNEL=${{ vars.PROD_SLACK_ALERT_CHANNEL }}" --set "generic-service.env.APP_VERSION=${{ needs.build.outputs.app_version }}" --set "generic-service.env.ENVIRONMENT=prod" --set generic-service.image.repository=${{ vars.CLOUD_PLATFORM_ECR_REGISTRY_URL }}/${{ vars.ECR_REPOSITORY }}'
